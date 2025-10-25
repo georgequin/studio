@@ -1,3 +1,10 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "clipping-upload",
+      "description": "A placeholder image of a newspaper clipping",
+      "imageUrl": "https://images.unsplash.com/photo-1635942104748-c869be8c597c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxuZXdzcGFwZXIlMjBhcnRpY2xlfGVufDB8fHx8MTc2MTM3NTU4MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "newspaper article"
+    }
+  ]
 }
