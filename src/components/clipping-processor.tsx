@@ -1,6 +1,7 @@
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import Image from 'next/image';
 import {
   Building,
@@ -76,7 +77,7 @@ function ResultCard({
 }
 
 export function ClippingProcessor() {
-  const [formState, formAction] = useFormState(processClippingAction, initialState);
+  const [formState, formAction] = useActionState(processClippingAction, initialState);
   const clippingImage = PlaceHolderImages.find(
     (img) => img.id === 'clipping-upload'
   );
