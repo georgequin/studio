@@ -6,6 +6,7 @@ import {
   FileText,
   LayoutDashboard,
   Newspaper,
+  Settings,
   Upload,
 } from 'lucide-react';
 import {
@@ -19,17 +20,16 @@ import {
 } from '@/components/ui/sidebar';
 import { Button } from '../ui/button';
 import { Separator } from '../ui/separator';
-import { useSidebar } from '@/components/ui/sidebar';
 
 const navItems = [
   { href: '/', label: 'Process Clipping', icon: Upload },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/reports', label: 'Reports', icon: FileText },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { state } = useSidebar();
 
   return (
     <Sidebar>
@@ -48,7 +48,7 @@ export function AppSidebar() {
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href} passHref>
+              <Link href={item.href}>
                 <SidebarMenuButton
                   isActive={pathname === item.href}
                   tooltip={{
