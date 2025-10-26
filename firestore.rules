@@ -1,143 +1,19 @@
 /**
  * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for draft reports, while allowing public read access to sources, categories, and departments. Finalized reports require further access control configuration based on the application's needs.
+ * @description This ruleset allows all users (authenticated or not) to perform any action
+ *              on all collections and documents. This configuration is completely open
+ *              and intended for development, testing, or public demo environments only.
  *
- * Data Structure:
- * - /users/{userId}/draft_reports/{reportId}: Stores draft reports, accessible only to the owning user.
- * - /reports/{reportId}: Stores finalized reports. Currently, write access is denied. Consider adding a `members` map for collaborative access.
- * - /sources/{sourceId}: Stores news sources. Publicly readable.
- * - /categories/{categoryId}: Stores report categories. Publicly readable.
- * - /departments/{departmentId}: Stores department information. Publicly readable.
- *
- * Key Security Decisions:
- * - User-owned draft reports are secured via path-based ownership.
- * - Listing of draft reports is restricted to the owning user.
- * - Finalized reports in `/reports` are currently not writable without further configuration (e.g., adding a `members` map).
- * - Sources, Categories, and Departments are publicly readable.
- *
- * Denormalization for Authorization:
- * - Path-based ownership in `/users/{userId}/draft_reports/{reportId}` eliminates the need for `get()` calls to verify ownership.
+ * ⚠️ WARNING:
+ * These rules disable all Firestore security. Any user can read, write, update,
+ * or delete any document in your database. Never use this in production.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /**
-     * @description Checks if the current user is signed in.
-     * @returns {boolean} True if the user is signed in, false otherwise.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the provided userId matches the authenticated user's UID.
-     * @param {string} userId - The user ID to check.
-     * @returns {boolean} True if the user ID matches the authenticated user's UID.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-     /**
-     * @description Checks if the current user is the owner of the existing document.
-     * @param {string} userId - The user ID to check against the authenticated user's UID.
-     * @returns {boolean} True if the user is the owner and the document exists.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Security rules for draft reports under a user's collection.
-     * @path /users/{userId}/draft_reports/{reportId}
-     * @allow (create) - A user with UID 'user123' can create a draft report with creatorId 'user123'.
-     * @allow (get, list) - A user with UID 'user123' can read/list their own draft reports.
-     * @deny (create) - A user with UID 'user123' cannot create a draft report with creatorId 'user456'.
-     * @deny (update, delete) - A user with UID 'user123' cannot update/delete a draft report owned by 'user456'.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
-     */
-    match /users/{userId}/draft_reports/{reportId} {
-      // Read Rules: Only the owner can read
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-
-      // Write Rules: Only the owner can create, update, or delete
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Security rules for finalized reports.
-     * @path /reports/{reportId}
-     * @allow (get, list) - Anyone can read finalized reports.
-     * @deny (create, update, delete) - No one can create, update, or delete finalized reports without additional access control configuration.
-     * @principle Requires additional access control configuration (e.g., a 'members' map) for write access.
-     */
-    match /reports/{reportId} {
-      // Read Rules: Publicly readable
-      allow get: if true;
-      allow list: if true;
-
-      // Write Rules: Deny all writes for now. Consider adding a `members` map for access control.
-      allow create: if false; // TODO: Add owner/editor validation once the schema is updated with an ownership or members field.
-      allow update: if false; // TODO: Add owner/editor validation once the schema is updated with an ownership or members field.
-      allow delete: if false; // TODO: Add owner/editor validation once the schema is updated with an ownership or members field.
-    }
-
-    /**
-     * @description Security rules for news sources.
-     * @path /sources/{sourceId}
-     * @allow (get, list) - Anyone can read news sources.
-     * @deny (create, update, delete) - No one can create, update, or delete news sources without authentication.
-     * @principle Allows public read access while restricting write access.
-     */
-    match /sources/{sourceId} {
-      // Read Rules: Publicly readable
-      allow get: if true;
-      allow list: if true;
-
-      // Write Rules: Only authenticated users can create, update or delete
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
-    }
-
-    /**
-     * @description Security rules for report categories.
-     * @path /categories/{categoryId}
-     * @allow (get, list) - Anyone can read report categories.
-     * @deny (create, update, delete) - No one can create, update, or delete categories without authentication.
-     * @principle Allows public read access while restricting write access.
-     */
-    match /categories/{categoryId} {
-      // Read Rules: Publicly readable
-      allow get: if true;
-      allow list: if true;
-
-      // Write Rules: Only authenticated users can create, update or delete
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
-    }
-
-    /**
-     * @description Security rules for departments.
-     * @path /departments/{departmentId}
-     * @allow (get, list) - Anyone can read departments.
-     * @deny (create, update, delete) - No one can create, update, or delete departments without authentication.
-     * @principle Allows public read access while restricting write access.
-     */
-    match /departments/{departmentId} {
-      // Read Rules: Publicly readable
-      allow get: if true;
-      allow list: if true;
-
-      // Write Rules: Only authenticated users can create, update or delete
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+    // Allow all read and write operations on all documents
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }

@@ -64,47 +64,27 @@ function SubmitButton() {
   );
 }
 
-function ResultCard({
-  icon,
-  title,
-  value,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  value?: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-2">
-        {icon}
-        <CardTitle className="text-base font-medium">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {value && <p className="text-sm text-muted-foreground">{value}</p>}
-        {children}
-      </CardContent>
-    </Card>
-  );
-}
-
 export function ClippingProcessor() {
-  const [formState, formAction] = useActionState(
-    processClippingAction,
-    initialState
-  );
+  const [state, formAction] = useActionState(processClippingAction, initialState);
   const clippingImage = PlaceHolderImages.find(
     (img) => img.id === 'clipping-upload'
   );
 
   const [editableResult, setEditableResult] = React.useState<AnalysisResult | null>(null);
+  const { toast } = useToast();
 
   React.useEffect(() => {
-    if (formState.data) {
-      setEditableResult(formState.data);
+    if (state.data) {
+      setEditableResult(state.data);
     }
-  }, [formState.data]);
+    if(state.message && state.message !== 'Analysis complete.') {
+        toast({
+            variant: 'destructive',
+            title: 'Processing Failed',
+            description: state.message,
+        });
+    }
+  }, [state, toast]);
 
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -113,7 +93,6 @@ export function ClippingProcessor() {
 
   const firestore = useFirestore();
   const { user } = useUser();
-  const { toast } = useToast();
   
   const sourcesCollection = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -198,9 +177,9 @@ export function ClippingProcessor() {
                   placeholder="Paste the full text of the news article here..."
                   className="min-h-[200px] lg:min-h-[260px]"
                 />
-                {formState?.errors?.text && (
+                {state?.errors?.text && (
                   <p className="text-sm text-destructive">
-                    {formState.errors.text}
+                    {state.errors.text}
                   </p>
                 )}
               </div>
