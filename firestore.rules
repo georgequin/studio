@@ -1,25 +1,21 @@
 /**
- * @file Firebase Security Rules for Firestore.
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for draft reports,
+ *              allows public read access to sources, categories, and departments, and
+ *              restricts write access to sources.
  *
- * @Core Philosophy: This ruleset enforces a strict user-ownership model for draft reports,
- * allows public read access to sources, categories, and departments, and requires backend
- * management of finalized reports.
- *
- * @Data Structure:
+ * Data Structure:
  * - /users/{userId}/draft_reports/{reportId}: Draft reports, owned by individual users.
  * - /reports/{reportId}: Finalized reports (access control TBD, currently open).
- * - /sources/{sourceId}: News sources, publicly readable.
- * - /categories/{categoryId}: Report categories, publicly readable.
- * - /departments/{departmentId}: NHRC departments, publicly readable.
+ * - /sources/{sourceId}: News sources. Publicly readable, but writes are denied without authentication.
+ * - /categories/{categoryId}: Report categories. Publicly readable, but writes are denied.
+ * - /departments/{departmentId}: NHRC departments. Publicly readable, but writes are denied.
  *
- * @Key Security Decisions:
- * - Draft reports are strictly user-owned and only accessible by the user.
+ * Key Security Decisions:
+ * - Users can only read and write their own draft reports.
+ * - Listing reports is only allowed for draft reports within a user's collection.
  * - Sources, categories, and departments are publicly readable.
- * - The rules do not implement specific authorization for finalized reports.
- * - List operations are secured where appropriate (e.g., user-owned drafts).
- *
- * @Denormalization for Authorization:
- * - Path-based ownership is used for draft reports to avoid get() calls.
+ * - Writes to the `sources` collection are denied (seeding must be done via backend).
  */
 rules_version = '2';
 service cloud.firestore {
@@ -28,45 +24,52 @@ service cloud.firestore {
     /**
      * @description Allows users to manage their own draft reports.
      * @path /users/{userId}/draft_reports/{reportId}
-     * @allow (create) User 'user123' can create a new draft report with ID 'report456' under their own user ID.
-     * @allow (get) User 'user123' can read a draft report with ID 'report456' under their own user ID.
-     * @allow (update) User 'user123' can update a draft report with ID 'report456' under their own user ID.
-     * @allow (delete) User 'user123' can delete a draft report with ID 'report456' under their own user ID.
-     * @deny (create) User 'user456' cannot create a draft report under user ID 'user123'.
-     * @deny (get) User 'user456' cannot read a draft report under user ID 'user123'.
-     * @deny (update) User 'user456' cannot update a draft report under user ID 'user123'.
-     * @deny (delete) User 'user456' cannot delete a draft report under user ID 'user123'.
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @allow (create) User A creates a new draft report under their own user ID.
+     *          auth.uid == "userA" and request.resource.data.id == "userA"
+     * @allow (get) User A retrieves a draft report with ID "report1" under their user ID.
+     *          auth.uid == "userA"
+     * @allow (update) User A updates a draft report with ID "report1" under their user ID.
+     *          auth.uid == "userA"
+     * @allow (delete) User A deletes a draft report with ID "report1" under their user ID.
+     *          auth.uid == "userA"
+     * @deny (create) User A attempts to create a draft report under User B's user ID.
+     *          auth.uid == "userA" and request.resource.data.id == "userB"
+     * @deny (get) User A attempts to retrieve a draft report under User B's user ID.
+     *          auth.uid == "userB"
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId}/draft_reports/{reportId} {
       function isSignedIn() {
         return request.auth != null;
       }
-
       function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
+        return request.auth.uid == userId;
       }
-
       function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+        return isOwner(userId) && resource.data != null;
       }
 
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Allows public read access to finalized reports, but no direct client writes.
+     * @description Allows anyone to read finalized reports, but restricts writes.
      * @path /reports/{reportId}
-     * @allow (get) Any user can read a report.
+     * @allow (get) Any user can retrieve a report.
+     *          auth.uid == null
      * @allow (list) Any user can list reports.
-     * @deny (create) No user can directly create a report.
-     * @deny (update) No user can directly update a report.
-     * @deny (delete) No user can directly delete a report.
-     * @principle Allows public read access but restricts write access. Reports should be created and managed via a backend service.
+     *          auth.uid == null
+     * @deny (create) Any user attempts to create a report.
+     *          auth.uid == "userA"
+     * @deny (update) Any user attempts to update a report.
+     *          auth.uid == "userA"
+     * @deny (delete) Any user attempts to delete a report.
+     *          auth.uid == "userA"
+     * @principle Restricts write access to finalized reports.
      */
     match /reports/{reportId} {
       allow get: if true;
@@ -77,13 +80,19 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows public read access to news sources.
+     * @description Allows public read access to news sources, but restricts writes.
      * @path /sources/{sourceId}
-     * @allow (get) Any user can read a source.
-     * @allow (list) Any user can list sources.
-     * @deny (create) No user can directly create a source.
-     * @deny (update) No user can directly update a source.
-     * @deny (delete) No user can directly delete a source.
+     * @allow (get) Any user can retrieve a news source.
+     *          auth.uid == null
+     * @allow (list) Any user can list news sources.
+     *          auth.uid == null
+     * @deny (create) Any user attempts to create a news source.
+     *          auth.uid == "userA"
+     * @deny (update) Any user attempts to update a news source.
+     *          auth.uid == "userA"
+     * @deny (delete) Any user attempts to delete a news source.
+     *          auth.uid == "userA"
+     * @principle Restricts write access to news sources.
      */
     match /sources/{sourceId} {
       allow get: if true;
@@ -94,13 +103,19 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows public read access to report categories.
+     * @description Allows public read access to report categories, but restricts writes.
      * @path /categories/{categoryId}
-     * @allow (get) Any user can read a category.
+     * @allow (get) Any user can retrieve a category.
+     *          auth.uid == null
      * @allow (list) Any user can list categories.
-     * @deny (create) No user can directly create a category.
-     * @deny (update) No user can directly update a category.
-     * @deny (delete) No user can directly delete a category.
+     *          auth.uid == null
+     * @deny (create) Any user attempts to create a category.
+     *          auth.uid == "userA"
+     * @deny (update) Any user attempts to update a category.
+     *          auth.uid == "userA"
+     * @deny (delete) Any user attempts to delete a category.
+     *          auth.uid == "userA"
+     * @principle Restricts write access to report categories.
      */
     match /categories/{categoryId} {
       allow get: if true;
@@ -111,13 +126,19 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows public read access to NHRC departments.
+     * @description Allows public read access to NHRC departments, but restricts writes.
      * @path /departments/{departmentId}
-     * @allow (get) Any user can read a department.
+     * @allow (get) Any user can retrieve a department.
+     *          auth.uid == null
      * @allow (list) Any user can list departments.
-     * @deny (create) No user can directly create a department.
-     * @deny (update) No user can directly update a department.
-     * @deny (delete) No user can directly delete a department.
+     *          auth.uid == null
+     * @deny (create) Any user attempts to create a department.
+     *          auth.uid == "userA"
+     * @deny (update) Any user attempts to update a department.
+     *          auth.uid == "userA"
+     * @deny (delete) Any user attempts to delete a department.
+     *          auth.uid == "userA"
+     * @principle Restricts write access to NHRC departments.
      */
     match /departments/{departmentId} {
       allow get: if true;

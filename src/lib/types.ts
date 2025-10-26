@@ -12,3 +12,9 @@ export type Report = {
   userId: string;
   uploadDate: string;
 };
+
+export type Source = {
+    id: string;
+    name: string;
+    url?: string;
+}
