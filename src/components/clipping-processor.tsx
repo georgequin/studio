@@ -37,7 +37,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { useCollection, useFirestore, useUser } from '@/firebase';
+import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
@@ -114,7 +114,11 @@ export function ClippingProcessor() {
   const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
-  const sourcesCollection = collection(firestore, 'sources');
+  
+  const sourcesCollection = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'sources');
+  }, [firestore]);
   const { data: sources, isLoading: sourcesLoading } = useCollection(sourcesCollection);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {

@@ -38,7 +38,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import type { Report } from '@/lib/types';
 import { CATEGORY_COLORS } from '@/lib/thematic-areas';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
 const convertToCSV = (data: Report[]) => {
@@ -119,7 +119,10 @@ export const columns: ColumnDef<Report>[] = [
 
 export function ReportsTable() {
   const firestore = useFirestore();
-  const reportsCollection = collection(firestore, 'reports');
+  const reportsCollection = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'reports');
+  }, [firestore]);
   const { data: reports, isLoading } = useCollection<Report>(reportsCollection);
 
   const data = reports || [];
