@@ -5,6 +5,9 @@ import { z } from 'zod';
 import { summarizeNewsClipping } from '@/ai/flows/summarize-news-clipping';
 import { categorizeNewsClipping } from '@/ai/flows/categorize-news-clipping';
 import { THEMATIC_AREA_MAP } from '@/lib/thematic-areas';
+import { extractTextFromImage } from '@/ai/flows/extract-text-from-image';
+import { fromBuffer } from 'image-type';
+
 
 const inputSchema = z.object({
   text: z.string().optional(),
@@ -37,22 +40,31 @@ export async function processClippingAction(
     };
   }
 
-  // TODO: Add logic to extract text from file if text is empty.
-  // For now, we will use a placeholder if no text is provided.
-  if (!text && file instanceof File && file.size > 0) {
-      // In a real scenario, you'd use a library like Tesseract.js for OCR
-      // or a PDF parsing library.
-      text = `Placeholder text from uploaded file: ${file.name}`;
-  } else if (!text) {
-      return {
-          message: 'Please provide either text or a file.',
-          errors: { text: ['Please provide either text or a file.'] },
-          data: null,
-      }
-  }
-
-
   try {
+    if (!text && file instanceof File && file.size > 0) {
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const type = await fromBuffer(buffer);
+        if (!type) {
+            return {
+                message: 'Invalid file type.',
+                errors: { file: ['Could not determine file type. Please upload a valid image or PDF.'] },
+                data: null,
+            }
+        }
+        
+        const photoDataUri = `data:${type.mime};base64,${buffer.toString('base64')}`;
+        
+        const ocrResult = await extractTextFromImage({ photoDataUri });
+        text = ocrResult.text;
+    } else if (!text) {
+        return {
+            message: 'Please provide either text or a file.',
+            errors: { text: ['Please provide either text or a file.'] },
+            data: null,
+        }
+    }
+
+
     const [summaryResult, categoryResult] = await Promise.all([
       summarizeNewsClipping({ text }),
       categorizeNewsClipping({ text }),
@@ -77,8 +89,9 @@ export async function processClippingAction(
     };
   } catch (error) {
     console.error(error);
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred during AI processing.';
     return {
-      message: 'An unexpected error occurred during AI processing.',
+      message: errorMessage,
       errors: null,
       data: null,
     };
