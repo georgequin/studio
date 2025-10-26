@@ -1,0 +1,232 @@
+{
+  "entities": {
+    "Source": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Source",
+      "type": "object",
+      "description": "Represents the source of a news clipping or article.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the source."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the source (e.g., 'The Hindu', 'Times of India')."
+        },
+        "url": {
+          "type": "string",
+          "description": "URL of the source's website.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Report": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Report",
+      "type": "object",
+      "description": "Represents a news report or article related to human rights violations, including editable content before saving.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the report."
+        },
+        "sourceId": {
+          "type": "string",
+          "description": "Reference to Source. (Relationship: Source 1:N Report)"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the report."
+        },
+        "content": {
+          "type": "string",
+          "description": "The main content of the report, editable before saving."
+        },
+        "summary": {
+          "type": "string",
+          "description": "AI-generated summary of the report content."
+        },
+        "categoryIds": {
+          "type": "array",
+          "description": "References to Categories. (Relationship: Category N:N Report)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "departmentIds": {
+          "type": "array",
+          "description": "References to Departments assigned to the report.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "publicationDate": {
+          "type": "string",
+          "description": "Date when the report was originally published.",
+          "format": "date-time"
+        },
+        "uploadDate": {
+          "type": "string",
+          "description": "Date when the report was uploaded to the system.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "sourceId",
+        "title",
+        "content",
+        "publicationDate",
+        "uploadDate"
+      ]
+    },
+    "Category": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Category",
+      "type": "object",
+      "description": "Represents a category under which a news story is classified.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the category."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the category (e.g., 'Communal Clashes', 'Women & Children')."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the category."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Department": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Department",
+      "type": "object",
+      "description": "Represents an NHRC department.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the department."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the department (e.g., 'Women & Children department')."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the department's responsibilities."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}/draft_reports/{reportId}",
+        "definition": {
+          "entityName": "Report",
+          "schema": {
+            "$ref": "#/backend/entities/Report"
+          },
+          "description": "Stores draft reports, editable by the user. Path-based ownership for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user who owns the draft report."
+            },
+            {
+              "name": "reportId",
+              "description": "The ID of the draft report."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/reports/{reportId}",
+        "definition": {
+          "entityName": "Report",
+          "schema": {
+            "$ref": "#/backend/entities/Report"
+          },
+          "description": "Stores finalized reports. Consider adding a 'members' map if collaborative access is required.",
+          "params": [
+            {
+              "name": "reportId",
+              "description": "The ID of the report."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/sources/{sourceId}",
+        "definition": {
+          "entityName": "Source",
+          "schema": {
+            "$ref": "#/backend/entities/Source"
+          },
+          "description": "Stores information about news sources. Publicly readable.",
+          "params": [
+            {
+              "name": "sourceId",
+              "description": "The ID of the news source."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/categories/{categoryId}",
+        "definition": {
+          "entityName": "Category",
+          "schema": {
+            "$ref": "#/backend/entities/Category"
+          },
+          "description": "Stores categories for reports. Publicly readable.",
+          "params": [
+            {
+              "name": "categoryId",
+              "description": "The ID of the category."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/departments/{departmentId}",
+        "definition": {
+          "entityName": "Department",
+          "schema": {
+            "$ref": "#/backend/entities/Department"
+          },
+          "description": "Stores departments for reports. Publicly readable.",
+          "params": [
+            {
+              "name": "departmentId",
+              "description": "The ID of the department."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure prioritizes authorization independence and supports secure list operations (QAPs). It addresses the requirement for editable reports before saving and source selection during upload.\n\n1.  **User-Owned Draft Reports:** Reports are stored as drafts under `/users/{userId}/draft_reports/{reportId}`. This ensures that only the user who creates the draft has access.  Moving a report out of `draft_reports` means the report is ready to be saved, and thus moves to the `reports` collection. Since security rules do not apply to a move operation, ensure a backend function controls the movement of documents between these collections.\n2.  **Reports Collection:** The `/reports/{reportId}` collection stores finalized reports. The `sourceId` is included in each report document to reference the `Source`.\n3.  **Sources Collection:** The `/sources/{sourceId}` collection stores information about news sources.  This collection is publicly readable.\n4.  **Categories and Departments Collections:** Categories and Departments are stored as root-level collections (`/categories` and `/departments`) for easy management and querying. These are publicly readable, assuming there is no sensitive data in those documents.\n\n**Authorization Independence (Denormalization):**\n\n*   Ownership: The path-based ownership (`/users/{userId}/draft_reports/{reportId}`) inherently provides authorization independence.  No `get()` calls are needed to verify ownership of draft reports.\n\n**QAPs (Rules are not Filters):**\n\n*   Draft Reports: The structure facilitates secure `list` operations for draft reports.  A user can only list reports under their own `/users/{userId}/draft_reports}`.\n*   Reports: If access control is needed on the main `/reports` collection, consider adding a membership map (`members: {userId: role}`) to each report document. Alternatively, make this collection publicly read only."
+  }
+}

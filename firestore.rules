@@ -1,0 +1,130 @@
+/**
+ * @file Firebase Security Rules for Firestore.
+ *
+ * @Core Philosophy: This ruleset enforces a strict user-ownership model for draft reports,
+ * allows public read access to sources, categories, and departments, and requires backend
+ * management of finalized reports.
+ *
+ * @Data Structure:
+ * - /users/{userId}/draft_reports/{reportId}: Draft reports, owned by individual users.
+ * - /reports/{reportId}: Finalized reports (access control TBD, currently open).
+ * - /sources/{sourceId}: News sources, publicly readable.
+ * - /categories/{categoryId}: Report categories, publicly readable.
+ * - /departments/{departmentId}: NHRC departments, publicly readable.
+ *
+ * @Key Security Decisions:
+ * - Draft reports are strictly user-owned and only accessible by the user.
+ * - Sources, categories, and departments are publicly readable.
+ * - The rules do not implement specific authorization for finalized reports.
+ * - List operations are secured where appropriate (e.g., user-owned drafts).
+ *
+ * @Denormalization for Authorization:
+ * - Path-based ownership is used for draft reports to avoid get() calls.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Allows users to manage their own draft reports.
+     * @path /users/{userId}/draft_reports/{reportId}
+     * @allow (create) User 'user123' can create a new draft report with ID 'report456' under their own user ID.
+     * @allow (get) User 'user123' can read a draft report with ID 'report456' under their own user ID.
+     * @allow (update) User 'user123' can update a draft report with ID 'report456' under their own user ID.
+     * @allow (delete) User 'user123' can delete a draft report with ID 'report456' under their own user ID.
+     * @deny (create) User 'user456' cannot create a draft report under user ID 'user123'.
+     * @deny (get) User 'user456' cannot read a draft report under user ID 'user123'.
+     * @deny (update) User 'user456' cannot update a draft report under user ID 'user123'.
+     * @deny (delete) User 'user456' cannot delete a draft report under user ID 'user123'.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     */
+    match /users/{userId}/draft_reports/{reportId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Allows public read access to finalized reports, but no direct client writes.
+     * @path /reports/{reportId}
+     * @allow (get) Any user can read a report.
+     * @allow (list) Any user can list reports.
+     * @deny (create) No user can directly create a report.
+     * @deny (update) No user can directly update a report.
+     * @deny (delete) No user can directly delete a report.
+     * @principle Allows public read access but restricts write access. Reports should be created and managed via a backend service.
+     */
+    match /reports/{reportId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Allows public read access to news sources.
+     * @path /sources/{sourceId}
+     * @allow (get) Any user can read a source.
+     * @allow (list) Any user can list sources.
+     * @deny (create) No user can directly create a source.
+     * @deny (update) No user can directly update a source.
+     * @deny (delete) No user can directly delete a source.
+     */
+    match /sources/{sourceId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Allows public read access to report categories.
+     * @path /categories/{categoryId}
+     * @allow (get) Any user can read a category.
+     * @allow (list) Any user can list categories.
+     * @deny (create) No user can directly create a category.
+     * @deny (update) No user can directly update a category.
+     * @deny (delete) No user can directly delete a category.
+     */
+    match /categories/{categoryId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Allows public read access to NHRC departments.
+     * @path /departments/{departmentId}
+     * @allow (get) Any user can read a department.
+     * @allow (list) Any user can list departments.
+     * @deny (create) No user can directly create a department.
+     * @deny (update) No user can directly update a department.
+     * @deny (delete) No user can directly delete a department.
+     */
+    match /departments/{departmentId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}
