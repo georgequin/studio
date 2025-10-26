@@ -46,7 +46,7 @@ function SubmitButton() {
           Processing...
         </>
       ) : (
-        'Process Clipping'
+        'Extract Stories'
       )}
     </Button>
   );
