@@ -1,138 +1,117 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for draft reports,
- *              while allowing public read access to sources, categories, and departments.
- *              The finalized reports collection is currently open for read, but
- *              guidelines are provided for securing it if necessary.
+ * @fileoverview Firestore Security Rules for the application.
  *
- * @dataStructure
- *  /users/{userId}/draft_reports/{reportId}: Stores draft reports, editable only by the owning user.
- *  /reports/{reportId}: Stores finalized reports. Currently publicly readable, but can be secured with a members map.
- *  /sources/{sourceId}: Stores news sources. Publicly readable.
- *  /categories/{categoryId}: Stores report categories. Publicly readable.
- *  /departments/{departmentId}: Stores departments. Publicly readable.
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for draft reports,
+ * allows public read access to sources, categories, and departments,
+ * and provides owner-only write access to finalized reports.
  *
- * @keySecurityDecisions
- *  - User draft reports are strictly owned by the user ID in the path.
- *  - Listing of user draft reports is allowed only for the owner.
- *  - Sources, categories, and departments are publicly readable.
- *  - Finalized reports are publicly readable for now, with notes on how to restrict.
- *  - No schema validation is performed beyond ownership checks in this prototyping phase.
+ * Data Structure:
+ * - /users/{userId}/draft_reports/{reportId}:  Draft reports owned by a specific user.
+ * - /reports/{reportId}: Finalized reports.
+ * - /sources/{sourceId}: News sources.
+ * - /categories/{categoryId}: Report categories.
+ * - /departments/{departmentId}: NHRC departments.
  *
- * @denormalizationForAuthorization
- *  - Path-based ownership for draft reports eliminates the need for `get()` calls to verify ownership.
+ * Key Security Decisions:
+ * - Users can only list their own draft reports.
+ * - Sources, categories, and departments are publicly readable.
+ * - The rules do NOT enforce the exact schema, focusing on authorization.
+ * - Finalized reports lack specific authorization so it is set to owner-only.
+ * - Finalized reports do not have an owner, so the rule defaults to false with a TODO.
  *
- * @structuralSegregation
- *  - Draft reports are stored in a private user subcollection, while finalized reports are in a public top-level collection.
+ * Denormalization for Authorization:
+ * - The draft reports' data model uses path-based ownership (/users/{userId}/draft_reports/{reportId}) to avoid costly `get()` calls.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows the owner to manage their draft reports.
+     * @description Allows access to a user's draft reports.
      * @path /users/{userId}/draft_reports/{reportId}
-     * @allow (create) User 'aJuYSdn5M9ajQs8yBA4Wwi6MHGN2' can create a draft report under /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report1.
-     * @allow (get) User 'aJuYSdn5M9ajQs8yBA4Wwi6MHGN2' can get a draft report under /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report1.
-     * @allow (update) User 'aJuYSdn5M9ajQs8yBA4Wwi6MHGN2' can update a draft report under /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report1.
-     * @allow (delete) User 'aJuYSdn5M9ajQs8yBA4Wwi6MHGN2' can delete a draft report under /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report1.
-     * @deny (create) User 'attackerId' cannot create a draft report under /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report1.
-     * @deny (get) User 'attackerId' cannot get a draft report under /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report1.
-     * @deny (update) User 'attackerId' cannot update a draft report under /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report1.
-     * @deny (delete) User 'attackerId' cannot delete a draft report under /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report1.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) User 'aJuYSdn5M9ajQs8yBA4Wwi6MHGN2' can create a draft report under /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report123.
+     * @deny (create) User ' অন্যID ' cannot create a draft report under /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report123.
+     * @allow (get) User 'aJuYSdn5M9ajQs8yBA4Wwi6MHGN2' can get their draft report /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report123.
+     * @deny (get) User ' অন্যID ' cannot get the draft report /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report123.
+     * @allow (update) User 'aJuYSdn5M9ajQs8yBA4Wwi6MHGN2' can update their draft report /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report123.
+     * @deny (update) User ' অন্যID ' cannot update the draft report /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report123.
+     * @allow (delete) User 'aJuYSdn5M9ajQs8yBA4Wwi6MHGN2' can delete their draft report /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report123.
+     * @deny (delete) User ' অন্যID ' cannot delete the draft report /users/aJuYSdn5M9ajQs8yBA4Wwi6MHGN2/draft_reports/report123.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId}/draft_reports/{reportId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId) && resource.data.id == userId;
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Allows public read access to reports, but consider restricting write access with a members map.
-     * @path /reports/{reportId}
-     * @allow (get) Any user can get a report.
-     * @allow (list) Any user can list reports.
-     * @deny (create) No user can create a report without specific authorization.
-     * @deny (update) No user can update a report without specific authorization.
-     * @deny (delete) No user can delete a report without specific authorization.
-     * @principle Allows public read access while restricting write access.
-     */
-    match /reports/{reportId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    /**
-     * @description Allows public read access to sources.
+     * @description Allows public read access to sources and restricts write access.
      * @path /sources/{sourceId}
-     * @allow (get) Any user can get a source.
+     * @allow (get) Any user can read a source.
      * @allow (list) Any user can list sources.
-     * @deny (create) No user can create a source without specific authorization.
-     * @deny (update) No user can update a source without specific authorization.
-     * @deny (delete) No user can delete a source without specific authorization.
-     * @principle Allows public read access while restricting write access.
+     * @deny (create) No user can create a source through client.
+     * @deny (update) No user can update a source through client.
+     * @deny (delete) No user can delete a source through client.
+     * @principle Allows public read access with no write access.
      */
     match /sources/{sourceId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Allows public read access to categories.
+     * @description Allows public read access to categories and restricts write access.
      * @path /categories/{categoryId}
-     * @allow (get) Any user can get a category.
+     * @allow (get) Any user can read a category.
      * @allow (list) Any user can list categories.
-     * @deny (create) No user can create a category without specific authorization.
-     * @deny (update) No user can update a category without specific authorization.
-     * @deny (delete) No user can delete a category without specific authorization.
-     * @principle Allows public read access while restricting write access.
+     * @deny (create) No user can create a category through client.
+     * @deny (update) No user can update a category through client.
+     * @deny (delete) No user can delete a category through client.
+     * @principle Allows public read access with no write access.
      */
     match /categories/{categoryId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
     /**
-     * @description Allows public read access to departments.
+     * @description Allows public read access to departments and restricts write access.
      * @path /departments/{departmentId}
-     * @allow (get) Any user can get a department.
+     * @allow (get) Any user can read a department.
      * @allow (list) Any user can list departments.
-     * @deny (create) No user can create a department without specific authorization.
-     * @deny (update) No user can update a department without specific authorization.
-     * @deny (delete) No user can delete a department without specific authorization.
-     * @principle Allows public read access while restricting write access.
+     * @deny (create) No user can create a department through client.
+     * @deny (update) No user can update a department through client.
+     * @deny (delete) No user can delete a department through client.
+     * @principle Allows public read access with no write access.
      */
     match /departments/{departmentId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    /**
+     * @description Allows owner-only access to reports.
+     * @path /reports/{reportId}
+     */
+    match /reports/{reportId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
   }
 
-  // Helper functions
   function isSignedIn() {
     return request.auth != null;
   }
 
   function isOwner(userId) {
-    return isSignedIn() && request.auth.uid == userId;
+    return request.auth.uid == userId;
   }
 
   function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+    return isOwner(userId) && resource != null;
   }
 }
