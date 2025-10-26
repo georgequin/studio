@@ -16,6 +16,8 @@ import {
   useMemoFirebase,
   setDocumentNonBlocking,
   deleteDocumentNonBlocking,
+  errorEmitter,
+  FirestorePermissionError,
 } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import {
@@ -113,11 +115,18 @@ export function SourcesManager() {
           });
           setIsSeeding(false);
         }).catch((error) => {
-          console.error('Error seeding data: ', error);
+           // Create and emit a contextual error for the batch write
+          const permissionError = new FirestorePermissionError({
+            path: 'sources', // Batch applies to the collection
+            operation: 'create', // Seeding is a 'create' operation
+            requestResourceData: initialSources, // The data we tried to add
+          });
+          errorEmitter.emit('permission-error', permissionError);
+
           toast({
             variant: 'destructive',
             title: 'Error seeding data',
-            description: 'Could not seed the initial news sources.',
+            description: 'Could not seed the initial news sources due to a permission issue.',
           });
           setIsSeeding(false);
         });
