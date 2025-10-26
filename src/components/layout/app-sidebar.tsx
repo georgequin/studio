@@ -48,19 +48,19 @@ export function AppSidebar() {
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <SidebarMenuButton
-                as={Link}
-                href={item.href}
-                isActive={pathname === item.href}
-                tooltip={{
-                  children: item.label,
-                  className:
-                    'bg-sidebar-background text-sidebar-foreground border-sidebar-border',
-                }}
-              >
-                <item.icon />
-                <span>{item.label}</span>
-              </SidebarMenuButton>
+              <Link href={item.href} passHref>
+                <SidebarMenuButton
+                  isActive={pathname === item.href}
+                  tooltip={{
+                    children: item.label,
+                    className:
+                      'bg-sidebar-background text-sidebar-foreground border-sidebar-border',
+                  }}
+                >
+                  <item.icon />
+                  <span>{item.label}</span>
+                </SidebarMenuButton>
+              </Link>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
