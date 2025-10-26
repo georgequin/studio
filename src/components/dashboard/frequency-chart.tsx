@@ -16,12 +16,12 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import type { Clipping } from '@/lib/data';
+import type { Report } from '@/lib/types';
 
-export function FrequencyChart({ data }: { data: Clipping[] }) {
+export function FrequencyChart({ data }: { data: Report[] }) {
   const chartData = React.useMemo(() => {
     const monthCounts = data.reduce((acc, clipping) => {
-      const month = format(new Date(clipping.date), 'yyyy-MM');
+      const month = format(new Date(clipping.publicationDate), 'yyyy-MM');
       acc[month] = (acc[month] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);

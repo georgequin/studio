@@ -1,0 +1,14 @@
+import { THEMATIC_AREA_MAP } from './thematic-areas';
+
+export type Report = {
+  id: string;
+  title: string;
+  sourceId: string;
+  publicationDate: string;
+  category: keyof typeof THEMATIC_AREA_MAP;
+  summary: string;
+  thematicArea: string;
+  content: string;
+  userId: string;
+  uploadDate: string;
+};

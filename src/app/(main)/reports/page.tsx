@@ -1,8 +1,6 @@
 import { AppHeader } from '@/components/layout/app-header';
 import { ReportsTable } from '@/components/reports/reports-table';
-import { mockData } from '@/lib/data';
-import { Download, Share2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export default function ReportsPage() {
   return (
@@ -10,7 +8,9 @@ export default function ReportsPage() {
       <AppHeader title="Reports">
         {/* The export functionality is in the client component */}
       </AppHeader>
-      <ReportsTable data={mockData} />
+      <FirebaseClientProvider>
+        <ReportsTable />
+      </FirebaseClientProvider>
     </div>
   );
 }

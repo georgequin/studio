@@ -4,6 +4,7 @@ import * as React from 'react';
 import {
   ArrowUpDown,
   ChevronDown,
+  Download,
 } from 'lucide-react';
 import {
   ColumnDef,
@@ -35,17 +36,18 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { Clipping } from '@/lib/data';
+import type { Report } from '@/lib/types';
 import { CATEGORY_COLORS } from '@/lib/thematic-areas';
-import { Download } from 'lucide-react';
+import { useCollection, useFirestore } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
-const convertToCSV = (data: Clipping[]) => {
-  const headers = ['ID', 'Date', 'Title', 'Source', 'Category', 'Thematic Area', 'Summary'];
+const convertToCSV = (data: Report[]) => {
+  const headers = ['ID', 'Publication Date', 'Title', 'Source ID', 'Category', 'Thematic Area', 'Summary'];
   const rows = data.map(d => [
     d.id,
-    d.date,
+    d.publicationDate,
     `"${d.title.replace(/"/g, '""')}"`,
-    `"${d.source.replace(/"/g, '""')}"`,
+    d.sourceId,
     d.category,
     d.thematicArea,
     `"${d.summary.replace(/"/g, '""')}"`
@@ -53,7 +55,7 @@ const convertToCSV = (data: Clipping[]) => {
   return [headers.join(','), ...rows].join('\n');
 };
 
-const downloadCSV = (data: Clipping[]) => {
+const downloadCSV = (data: Report[]) => {
   const csvString = convertToCSV(data);
   const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
@@ -67,9 +69,9 @@ const downloadCSV = (data: Clipping[]) => {
 };
 
 
-export const columns: ColumnDef<Clipping>[] = [
+export const columns: ColumnDef<Report>[] = [
   {
-    accessorKey: 'date',
+    accessorKey: 'publicationDate',
     header: ({ column }) => {
       return (
         <Button
@@ -81,7 +83,7 @@ export const columns: ColumnDef<Clipping>[] = [
         </Button>
       );
     },
-    cell: ({ row }) => <div>{row.getValue('date')}</div>,
+    cell: ({ row }) => <div>{new Date(row.getValue('publicationDate')).toLocaleDateString()}</div>,
   },
   {
     accessorKey: 'title',
@@ -89,9 +91,9 @@ export const columns: ColumnDef<Clipping>[] = [
     cell: ({ row }) => <div className="font-medium">{row.getValue('title')}</div>,
   },
   {
-    accessorKey: 'source',
-    header: 'Source',
-    cell: ({ row }) => <div>{row.getValue('source')}</div>,
+    accessorKey: 'sourceId',
+    header: 'Source ID',
+    cell: ({ row }) => <div>{row.getValue('sourceId')}</div>,
   },
   {
     accessorKey: 'category',
@@ -115,7 +117,13 @@ export const columns: ColumnDef<Clipping>[] = [
   },
 ];
 
-export function ReportsTable({ data }: { data: Clipping[] }) {
+export function ReportsTable() {
+  const firestore = useFirestore();
+  const reportsCollection = collection(firestore, 'reports');
+  const { data: reports, isLoading } = useCollection<Report>(reportsCollection);
+
+  const data = reports || [];
+
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
@@ -203,7 +211,13 @@ export function ReportsTable({ data }: { data: Clipping[] }) {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {isLoading ? (
+                <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                        Loading reports...
+                    </TableCell>
+                </TableRow>
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
@@ -225,7 +239,7 @@ export function ReportsTable({ data }: { data: Clipping[] }) {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No results.
+                  No reports found.
                 </TableCell>
               </TableRow>
             )}

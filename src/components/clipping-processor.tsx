@@ -5,13 +5,13 @@ import { useFormStatus } from 'react-dom';
 import Image from 'next/image';
 import {
   FolderKanban,
-  Clipboard,
   Lightbulb,
   LoaderCircle,
   Tag,
   UploadCloud,
   File as FileIcon,
   X,
+  Save,
 } from 'lucide-react';
 import * as React from 'react';
 
@@ -29,6 +29,18 @@ import { processClippingAction, type AnalysisResult } from '@/app/actions';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { useCollection, useFirestore, useUser } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useToast } from '@/hooks/use-toast';
 
 const initialState = {
   message: null,
@@ -85,9 +97,25 @@ export function ClippingProcessor() {
   const clippingImage = PlaceHolderImages.find(
     (img) => img.id === 'clipping-upload'
   );
-  const result: AnalysisResult | null = formState.data;
+
+  const [editableResult, setEditableResult] = React.useState<AnalysisResult | null>(null);
+
+  React.useEffect(() => {
+    if (formState.data) {
+      setEditableResult(formState.data);
+    }
+  }, [formState.data]);
+
+
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const [sourceId, setSourceId] = React.useState<string>('');
+
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
+  const sourcesCollection = collection(firestore, 'sources');
+  const { data: sources, isLoading: sourcesLoading } = useCollection(sourcesCollection);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -107,13 +135,40 @@ export function ClippingProcessor() {
     }
   }
 
+  const handleSaveReport = () => {
+    if (!editableResult || !user || !sourceId || !firestore) return;
+    const reportRef = doc(collection(firestore, 'reports'));
+    const newReport = {
+        ...editableResult,
+        id: reportRef.id,
+        sourceId: sourceId,
+        userId: user.uid,
+        uploadDate: new Date().toISOString(),
+        publicationDate: new Date().toISOString(), // Placeholder
+        title: editableResult.summary.substring(0, 50) + '...',
+        content: editableResult.summary,
+    };
+    setDocumentNonBlocking(reportRef, newReport, {});
+    toast({
+        title: "Report Saved",
+        description: "Your report has been successfully saved.",
+      });
+  }
+  
+  const handleResultChange = (field: keyof AnalysisResult, value: string | number | boolean) => {
+    if (editableResult) {
+      setEditableResult({ ...editableResult, [field]: value });
+    }
+  };
+
+
   return (
     <div className="grid gap-8 lg:grid-cols-2">
       <Card className="lg:col-span-2">
         <CardHeader>
           <CardTitle>Submit News Clipping</CardTitle>
           <CardDescription>
-            Upload an image/PDF of a news clipping or paste the text directly
+            Select a source, then upload an image/PDF of a news clipping or paste the text directly
             below to analyze it for human rights violations.
           </CardDescription>
         </CardHeader>
@@ -121,12 +176,23 @@ export function ClippingProcessor() {
           <form action={formAction} className="grid gap-6">
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="grid gap-2">
+                <Label htmlFor="source-select">Source</Label>
+                 <Select name="sourceId" onValueChange={setSourceId} value={sourceId}>
+                    <SelectTrigger id="source-select" disabled={sourcesLoading}>
+                        <SelectValue placeholder="Select a news source..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {sources?.map((source) => (
+                            <SelectItem key={source.id} value={source.id}>{source.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
                 <Label htmlFor="text-input">Clipping Text (Optional)</Label>
                 <Textarea
                   id="text-input"
                   name="text"
                   placeholder="Paste the full text of the news article here..."
-                  className="min-h-[200px] lg:min-h-[300px]"
+                  className="min-h-[200px] lg:min-h-[260px]"
                 />
                 {formState?.errors?.text && (
                   <p className="text-sm text-destructive">
@@ -183,39 +249,54 @@ export function ClippingProcessor() {
         </CardContent>
       </Card>
 
-      {result && (
+      {editableResult && (
         <div className="lg:col-span-2 grid gap-8">
-          <h2 className="text-2xl font-bold">Analysis Results</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <ResultCard
-              icon={<Lightbulb className="text-accent" />}
-              title="AI Summary"
-              value={result.summary}
-            />
-            <ResultCard icon={<Tag className="text-accent" />} title="Category">
-              <div className="flex flex-col gap-2">
-                <Badge variant="secondary" className="text-base w-fit">
-                  {result.category}
-                </Badge>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    Confidence:
-                  </span>
-                  <Progress
-                    value={result.confidence * 100}
-                    className="w-[60%]"
-                  />
-                  <span className="text-sm font-medium">
-                    {Math.round(result.confidence * 100)}%
-                  </span>
-                </div>
-              </div>
-            </ResultCard>
-            <ResultCard
-              icon={<FolderKanban className="text-accent" />}
-              title="Assigned Thematic Area"
-              value={result.thematicArea}
-            />
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold">Analysis Results</h2>
+            <Button onClick={handleSaveReport} disabled={!user}>
+                <Save className="mr-2" />
+                Save Report
+            </Button>
+          </div>
+          <div className="grid gap-4">
+             <Card>
+                <CardHeader>
+                    <CardTitle className="text-base font-medium flex items-center gap-4"><Lightbulb className="text-accent" /> AI Summary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <Textarea value={editableResult.summary} onChange={(e) => handleResultChange('summary', e.target.value)} className="min-h-[120px]" />
+                </CardContent>
+             </Card>
+             <div className="grid gap-4 md:grid-cols-2">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base font-medium flex items-center gap-4"><Tag className="text-accent" /> Category</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                        <Input value={editableResult.category} onChange={(e) => handleResultChange('category', e.target.value)} />
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">
+                                Confidence:
+                            </span>
+                            <Progress
+                                value={editableResult.confidence * 100}
+                                className="w-[60%]"
+                            />
+                            <span className="text-sm font-medium">
+                                {Math.round(editableResult.confidence * 100)}%
+                            </span>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base font-medium flex items-center gap-4"><FolderKanban className="text-accent" /> Assigned Thematic Area</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Input value={editableResult.thematicArea} onChange={(e) => handleResultChange('thematicArea', e.target.value)} />
+                    </CardContent>
+                </Card>
+             </div>
           </div>
         </div>
       )}

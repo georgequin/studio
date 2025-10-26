@@ -8,12 +8,13 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import type { Clipping } from '@/lib/data';
+import type { Report } from '@/lib/types';
 
-export function SourceChart({ data }: { data: Clipping[] }) {
+export function SourceChart({ data }: { data: Report[] }) {
+    // This needs to be updated to resolve source names from sourceIds
   const chartData = React.useMemo(() => {
     const sourceCounts = data.reduce((acc, clipping) => {
-      acc[clipping.source] = (acc[clipping.source] || 0) + 1;
+      acc[clipping.sourceId] = (acc[clipping.sourceId] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 

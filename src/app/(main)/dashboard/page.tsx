@@ -6,21 +6,28 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { mockData } from '@/lib/data';
+
 import { CategoryChart } from '@/components/dashboard/category-chart';
 import { SourceChart } from '@/components/dashboard/source-chart';
 import { FrequencyChart } from '@/components/dashboard/frequency-chart';
+import { FirebaseClientProvider } from '@/firebase';
 
 export default function DashboardPage() {
-  const totalClippings = mockData.length;
-  const categories = [...new Set(mockData.map((d) => d.category))];
-  const totalCategories = categories.length;
-  const sources = [...new Set(mockData.map((d) => d.source))];
-  const totalSources = sources.length;
-
   return (
     <div className="w-full">
       <AppHeader title="Dashboard" />
+      <FirebaseClientProvider>
+        <DashboardContent />
+      </FirebaseClientProvider>
+    </div>
+  );
+}
+
+function DashboardContent() {
+    // This component will be updated to fetch live data
+    // For now, it will show loading or empty states
+  return (
+    <>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
         <Card>
           <CardHeader>
@@ -28,7 +35,7 @@ export default function DashboardPage() {
             <CardDescription>Total articles processed</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{totalClippings}</p>
+            <p className="text-4xl font-bold">0</p>
           </CardContent>
         </Card>
         <Card>
@@ -37,7 +44,7 @@ export default function DashboardPage() {
             <CardDescription>Distinct violation categories</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{totalCategories}</p>
+            <p className="text-4xl font-bold">0</p>
           </CardContent>
         </Card>
         <Card>
@@ -46,7 +53,7 @@ export default function DashboardPage() {
             <CardDescription>Unique publications tracked</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{totalSources}</p>
+            <p className="text-4xl font-bold">0</p>
           </CardContent>
         </Card>
       </div>
@@ -60,7 +67,7 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <CategoryChart data={mockData} />
+            <CategoryChart data={[]} />
           </CardContent>
         </Card>
         <Card>
@@ -71,7 +78,7 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <SourceChart data={mockData} />
+            <SourceChart data={[]} />
           </CardContent>
         </Card>
         <Card className="lg:col-span-2">
@@ -82,10 +89,10 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <FrequencyChart data={mockData} />
+            <FrequencyChart data={[]} />
           </CardContent>
         </Card>
       </div>
-    </div>
+    </>
   );
 }

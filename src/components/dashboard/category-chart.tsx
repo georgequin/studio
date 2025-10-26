@@ -7,9 +7,9 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import type { Clipping } from '@/lib/data';
+import type { Report } from '@/lib/types';
 
-export function CategoryChart({ data }: { data: Clipping[] }) {
+export function CategoryChart({ data }: { data: Report[] }) {
   const chartData = React.useMemo(() => {
     const categoryCounts = data.reduce((acc, clipping) => {
       acc[clipping.category] = (acc[clipping.category] || 0) + 1;
