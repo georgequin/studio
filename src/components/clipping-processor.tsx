@@ -4,7 +4,7 @@ import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import Image from 'next/image';
 import {
-  Building,
+  FolderKanban,
   Clipboard,
   Lightbulb,
   LoaderCircle,
@@ -164,9 +164,9 @@ export function ClippingProcessor() {
                 </div>
             </ResultCard>
              <ResultCard
-                icon={<Building className="text-accent" />}
-                title="Assigned Department"
-                value={result.department}
+                icon={<FolderKanban className="text-accent" />}
+                title="Assigned Thematic Area"
+                value={result.thematicArea}
             />
             </div>
         </div>

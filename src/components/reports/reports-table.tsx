@@ -36,18 +36,18 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { Clipping } from '@/lib/data';
-import { CATEGORY_COLORS } from '@/lib/departments';
+import { CATEGORY_COLORS } from '@/lib/thematic-areas';
 import { Download } from 'lucide-react';
 
 const convertToCSV = (data: Clipping[]) => {
-  const headers = ['ID', 'Date', 'Title', 'Source', 'Category', 'Department', 'Summary'];
+  const headers = ['ID', 'Date', 'Title', 'Source', 'Category', 'Thematic Area', 'Summary'];
   const rows = data.map(d => [
     d.id,
     d.date,
     `"${d.title.replace(/"/g, '""')}"`,
     `"${d.source.replace(/"/g, '""')}"`,
     d.category,
-    d.department,
+    d.thematicArea,
     `"${d.summary.replace(/"/g, '""')}"`
   ].join(','));
   return [headers.join(','), ...rows].join('\n');
@@ -107,10 +107,10 @@ export const columns: ColumnDef<Clipping>[] = [
     },
   },
   {
-    accessorKey: 'department',
-    header: 'Department',
+    accessorKey: 'thematicArea',
+    header: 'Thematic Area',
     cell: ({ row }) => (
-      <div className="capitalize">{row.getValue('department')}</div>
+      <div className="capitalize">{row.getValue('thematicArea')}</div>
     ),
   },
 ];

@@ -4,7 +4,7 @@
 import { z } from 'zod';
 import { summarizeNewsClipping } from '@/ai/flows/summarize-news-clipping';
 import { categorizeNewsClipping } from '@/ai/flows/categorize-news-clipping';
-import { DEPARTMENT_MAP } from '@/lib/departments';
+import { THEMATIC_AREA_MAP } from '@/lib/thematic-areas';
 
 const inputSchema = z.object({
   text: z.string().min(50, 'Please provide at least 50 characters of text.'),
@@ -15,7 +15,7 @@ export type AnalysisResult = {
   containsViolation: boolean;
   category: string;
   confidence: number;
-  department: string;
+  thematicArea: string;
 };
 
 export async function processClippingAction(
@@ -46,12 +46,12 @@ export async function processClippingAction(
       throw new Error('AI processing failed to return a result.');
     }
 
-    const department = DEPARTMENT_MAP[categoryResult.category as keyof typeof DEPARTMENT_MAP] || 'Unassigned';
+    const thematicArea = THEMATIC_AREA_MAP[categoryResult.category as keyof typeof THEMATIC_AREA_MAP] || 'Unassigned';
 
     const resultData: AnalysisResult = {
       ...summaryResult,
       ...categoryResult,
-      department,
+      thematicArea,
     };
 
     return {

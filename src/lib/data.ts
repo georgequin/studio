@@ -1,13 +1,13 @@
-import { DEPARTMENT_MAP } from './departments';
+import { THEMATIC_AREA_MAP } from './thematic-areas';
 
 export type Clipping = {
   id: string;
   title: string;
   source: string;
   date: string;
-  category: keyof typeof DEPARTMENT_MAP;
+  category: keyof typeof THEMATIC_AREA_MAP;
   summary: string;
-  department: string;
+  thematicArea: string;
 };
 
 export const mockData: Clipping[] = [
@@ -18,7 +18,7 @@ export const mockData: Clipping[] = [
     date: '2024-05-15',
     category: 'Custodial Torture',
     summary: 'Activists gathered downtown to protest the alleged custodial death of a 28-year-old man, demanding an independent investigation into police conduct.',
-    department: DEPARTMENT_MAP['Custodial Torture'],
+    thematicArea: THEMATIC_AREA_MAP['Custodial Torture'],
   },
   {
     id: '2',
@@ -27,7 +27,7 @@ export const mockData: Clipping[] = [
     date: '2024-05-20',
     category: 'Communal Clashes',
     summary: 'A long-standing land dispute between two communities erupted into violence, leaving several injured and heightening tensions in the region.',
-    department: DEPARTMENT_MAP['Communal Clashes'],
+    thematicArea: THEMATIC_AREA_MAP['Communal Clashes'],
   },
   {
     id: '3',
@@ -36,7 +36,7 @@ export const mockData: Clipping[] = [
     date: '2024-06-01',
     category: 'Freedom of Speech',
     summary: 'Journalist unions have condemned a proposed legislation, stating it imposes severe restrictions on reporting and freedom of speech.',
-    department: DEPARTMENT_MAP['Freedom of Speech'],
+    thematicArea: THEMATIC_AREA_MAP['Freedom of Speech'],
   },
   {
     id: '4',
@@ -45,7 +45,7 @@ export const mockData: Clipping[] = [
     date: '2024-06-05',
     category: 'Women & Children',
     summary: 'Authorities rescued over 50 minors forced to work in hazardous conditions during a raid on an unregistered manufacturing unit.',
-    department: DEPARTMENT_MAP['Women & Children'],
+    thematicArea: THEMATIC_AREA_MAP['Women & Children'],
   },
   {
     id: '5',
@@ -54,7 +54,7 @@ export const mockData: Clipping[] = [
     date: '2024-06-10',
     category: 'Caste Discrimination',
     summary: 'A Dalit family was assaulted by upper-caste members for attempting to draw water from a public well, highlighting persistent caste-based discrimination.',
-    department: DEPARTMENT_MAP['Caste Discrimination'],
+    thematicArea: THEMATIC_AREA_MAP['Caste Discrimination'],
   },
   {
     id: '6',
@@ -63,7 +63,7 @@ export const mockData: Clipping[] = [
     date: '2024-06-12',
     category: 'Extrajudicial Killings',
     summary: 'Human rights groups are calling for an inquiry into the death of two youths during a counter-insurgency operation, alleging they were killed in a fake encounter.',
-    department: DEPARTMENT_MAP['Extrajudicial Killings'],
+    thematicArea: THEMATIC_AREA_MAP['Extrajudicial Killings'],
   },
   {
     id: '7',
@@ -72,7 +72,7 @@ export const mockData: Clipping[] = [
     date: '2024-07-02',
     category: 'Women & Children',
     summary: 'An annual report by a leading NGO indicates a significant increase in reported cases of domestic violence and assaults against women in the last year.',
-    department: DEPARTMENT_MAP['Women & Children'],
+    thematicArea: THEMATIC_AREA_MAP['Women & Children'],
   },
   {
     id: '8',
@@ -81,7 +81,7 @@ export const mockData: Clipping[] = [
     date: '2024-07-08',
     category: 'Communal Clashes',
     summary: 'Citizens and community leaders organized a peace march to promote harmony following recent communal disturbances in the city.',
-    department: DEPARTMENT_MAP['Communal Clashes'],
+    thematicArea: THEMATIC_AREA_MAP['Communal Clashes'],
   },
   {
     id: '9',
@@ -90,7 +90,7 @@ export const mockData: Clipping[] = [
     date: '2024-07-15',
     category: 'Terrorism',
     summary: 'The Anti-Terrorism Squad (ATS) arrested three individuals suspected of planning attacks in major cities, seizing incriminating materials.',
-    department: DEPARTMENT_MAP['Terrorism'],
+    thematicArea: THEMATIC_AREA_MAP['Terrorism'],
   },
   {
     id: '10',
@@ -99,7 +99,7 @@ export const mockData: Clipping[] = [
     date: '2024-07-18',
     category: 'Freedom of Speech',
     summary: 'A prominent human rights activist was arrested under sedition laws for a social media post critical of government policy, sparking widespread outrage.',
-    department: DEPARTMENT_MAP['Freedom of Speech'],
+    thematicArea: THEMATIC_AREA_MAP['Freedom of Speech'],
   },
   {
     id: '11',
@@ -108,7 +108,7 @@ export const mockData: Clipping[] = [
     date: '2024-04-22',
     category: 'Women & Children',
     summary: 'Police rescued three missing children from a neighboring state, suspecting the involvement of an interstate human trafficking ring.',
-    department: DEPARTMENT_MAP['Women & Children'],
+    thematicArea: THEMATIC_AREA_MAP['Women & Children'],
   },
   {
     id: '12',
@@ -117,6 +117,6 @@ export const mockData: Clipping[] = [
     date: '2024-04-28',
     category: 'Custodial Torture',
     summary: 'A video showing police officers brutally beating a suspect has gone viral, leading to public outcry and the suspension of the involved officers.',
-    department: DEPARTMENT_MAP['Custodial Torture'],
+    thematicArea: THEMATIC_AREA_MAP['Custodial Torture'],
   },
 ];
