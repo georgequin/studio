@@ -10,7 +10,10 @@ import {
   LoaderCircle,
   Tag,
   UploadCloud,
+  File as FileIcon,
+  X,
 } from 'lucide-react';
+import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -67,9 +70,7 @@ function ResultCard({
         <CardTitle className="text-base font-medium">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        {value && (
-          <p className="text-sm text-muted-foreground">{value}</p>
-        )}
+        {value && <p className="text-sm text-muted-foreground">{value}</p>}
         {children}
       </CardContent>
     </Card>
@@ -77,12 +78,34 @@ function ResultCard({
 }
 
 export function ClippingProcessor() {
-  const [formState, formAction] = useActionState(processClippingAction, initialState);
+  const [formState, formAction] = useActionState(
+    processClippingAction,
+    initialState
+  );
   const clippingImage = PlaceHolderImages.find(
     (img) => img.id === 'clipping-upload'
   );
-
   const result: AnalysisResult | null = formState.data;
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const handleSelectFileClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    if(fileInputRef.current) {
+        fileInputRef.current.value = '';
+    }
+  }
 
   return (
     <div className="grid gap-8 lg:grid-cols-2">
@@ -90,8 +113,8 @@ export function ClippingProcessor() {
         <CardHeader>
           <CardTitle>Submit News Clipping</CardTitle>
           <CardDescription>
-            Upload an image/PDF of a news clipping or paste the text directly below to
-            analyze it for human rights violations.
+            Upload an image/PDF of a news clipping or paste the text directly
+            below to analyze it for human rights violations.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -107,13 +130,15 @@ export function ClippingProcessor() {
                   required
                 />
                 {formState?.errors?.text && (
-                  <p className="text-sm text-destructive">{formState.errors.text}</p>
+                  <p className="text-sm text-destructive">
+                    {formState.errors.text}
+                  </p>
                 )}
               </div>
               <div className="grid gap-2">
                 <Label>Upload File</Label>
                 <div className="relative flex h-full min-h-[200px] w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/25 p-4 text-center">
-                  {clippingImage && (
+                  {clippingImage && !selectedFile && (
                     <Image
                       src={clippingImage.imageUrl}
                       alt={clippingImage.description}
@@ -122,15 +147,33 @@ export function ClippingProcessor() {
                       data-ai-hint={clippingImage.imageHint}
                     />
                   )}
-                  <div className="z-10 flex flex-col items-center gap-2">
-                    <UploadCloud className="size-10 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      Drag & drop or click to upload PDF/JPG/PNG
-                    </p>
-                    <Button type="button" variant="outline" size="sm">
-                      Select File
-                    </Button>
-                  </div>
+                   <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                    accept="application/pdf,image/jpeg,image/png"
+                    name="file"
+                  />
+                  {selectedFile ? (
+                     <div className="z-10 flex flex-col items-center gap-4 text-center">
+                        <FileIcon className="size-12 text-foreground" />
+                        <p className="font-medium">{selectedFile.name}</p>
+                        <Button type="button" variant="ghost" size="sm" onClick={handleRemoveFile}>
+                           <X className="mr-2 size-4" /> Remove
+                        </Button>
+                     </div>
+                  ) : (
+                    <div className="z-10 flex flex-col items-center gap-2">
+                        <UploadCloud className="size-10 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">
+                        Drag & drop or click to upload PDF/JPG/PNG
+                        </p>
+                        <Button type="button" variant="outline" size="sm" onClick={handleSelectFileClick}>
+                        Select File
+                        </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -143,32 +186,38 @@ export function ClippingProcessor() {
 
       {result && (
         <div className="lg:col-span-2 grid gap-8">
-            <h2 className="text-2xl font-bold">Analysis Results</h2>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <h2 className="text-2xl font-bold">Analysis Results</h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <ResultCard
-                icon={<Lightbulb className="text-accent" />}
-                title="AI Summary"
-                value={result.summary}
+              icon={<Lightbulb className="text-accent" />}
+              title="AI Summary"
+              value={result.summary}
             />
-             <ResultCard
-                icon={<Tag className="text-accent" />}
-                title="Category"
-            >
-                <div className='flex flex-col gap-2'>
-                    <Badge variant="secondary" className="text-base w-fit">{result.category}</Badge>
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">Confidence:</span>
-                        <Progress value={result.confidence * 100} className="w-[60%]" />
-                        <span className="text-sm font-medium">{Math.round(result.confidence * 100)}%</span>
-                    </div>
+            <ResultCard icon={<Tag className="text-accent" />} title="Category">
+              <div className="flex flex-col gap-2">
+                <Badge variant="secondary" className="text-base w-fit">
+                  {result.category}
+                </Badge>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    Confidence:
+                  </span>
+                  <Progress
+                    value={result.confidence * 100}
+                    className="w-[60%]"
+                  />
+                  <span className="text-sm font-medium">
+                    {Math.round(result.confidence * 100)}%
+                  </span>
                 </div>
+              </div>
             </ResultCard>
-             <ResultCard
-                icon={<FolderKanban className="text-accent" />}
-                title="Assigned Thematic Area"
-                value={result.thematicArea}
+            <ResultCard
+              icon={<FolderKanban className="text-accent" />}
+              title="Assigned Thematic Area"
+              value={result.thematicArea}
             />
-            </div>
+          </div>
         </div>
       )}
     </div>
