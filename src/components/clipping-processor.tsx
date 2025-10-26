@@ -121,13 +121,12 @@ export function ClippingProcessor() {
           <form action={formAction} className="grid gap-6">
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="grid gap-2">
-                <Label htmlFor="text-input">Clipping Text</Label>
+                <Label htmlFor="text-input">Clipping Text (Optional)</Label>
                 <Textarea
                   id="text-input"
                   name="text"
                   placeholder="Paste the full text of the news article here..."
                   className="min-h-[200px] lg:min-h-[300px]"
-                  required
                 />
                 {formState?.errors?.text && (
                   <p className="text-sm text-destructive">

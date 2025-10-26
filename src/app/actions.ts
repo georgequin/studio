@@ -7,7 +7,7 @@ import { categorizeNewsClipping } from '@/ai/flows/categorize-news-clipping';
 import { THEMATIC_AREA_MAP } from '@/lib/thematic-areas';
 
 const inputSchema = z.object({
-  text: z.string().min(50, 'Please provide at least 50 characters of text.'),
+  text: z.string().optional(),
 });
 
 export type AnalysisResult = {
@@ -25,6 +25,9 @@ export async function processClippingAction(
   const validatedFields = inputSchema.safeParse({
     text: formData.get('text'),
   });
+  
+  const file = formData.get('file');
+  let text = validatedFields.success ? validatedFields.data.text : '';
 
   if (!validatedFields.success) {
     return {
@@ -34,7 +37,20 @@ export async function processClippingAction(
     };
   }
 
-  const { text } = validatedFields.data;
+  // TODO: Add logic to extract text from file if text is empty.
+  // For now, we will use a placeholder if no text is provided.
+  if (!text && file instanceof File && file.size > 0) {
+      // In a real scenario, you'd use a library like Tesseract.js for OCR
+      // or a PDF parsing library.
+      text = `Placeholder text from uploaded file: ${file.name}`;
+  } else if (!text) {
+      return {
+          message: 'Please provide either text or a file.',
+          errors: { text: ['Please provide either text or a file.'] },
+          data: null,
+      }
+  }
+
 
   try {
     const [summaryResult, categoryResult] = await Promise.all([
