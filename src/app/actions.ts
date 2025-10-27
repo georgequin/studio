@@ -1,4 +1,3 @@
-
 'use server';
 
 import { z } from 'zod';
@@ -43,12 +42,14 @@ export async function processClippingAction(
     // Correctly handle case where only a file is provided
     if (!text && file instanceof File && file.size > 0) {
         const buffer = Buffer.from(await file.arrayBuffer());
-        const {imageTypeFromBuffer} = await (eval('import("image-type")') as Promise<typeof import('image-type')>);
-        const type = await imageTypeFromBuffer(buffer);
+        // Correctly import the ESM module 'image-type'
+        const imageType = await (eval('import("image-type")') as Promise<typeof import('image-type')>);
+        const type = await imageType.default(buffer);
+
         if (!type) {
             return {
                 message: 'Invalid file type.',
-                errors: { file: ['Could not determine file type. Please upload a valid image or PDF.'] },
+                errors: { file: ['Could not determine file type. Please upload a valid image.'] },
                 data: null,
             }
         }
