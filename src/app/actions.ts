@@ -42,8 +42,8 @@ export async function processClippingAction(
   try {
     if (!text && file instanceof File && file.size > 0) {
         const buffer = Buffer.from(await file.arrayBuffer());
-        const {fromBuffer} = await (eval('import("image-type")') as Promise<typeof import('image-type')>);
-        const type = await fromBuffer(buffer);
+        const {imageTypeFromBuffer} = await (eval('import("image-type")') as Promise<typeof import('image-type')>);
+        const type = await imageTypeFromBuffer(buffer);
         if (!type) {
             return {
                 message: 'Invalid file type.',
