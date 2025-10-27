@@ -27,36 +27,15 @@ export async function summarizeNewsClipping(input: SummarizeNewsClippingInput): 
   return summarizeNewsClippingFlow(input);
 }
 
-const determineViolation = ai.defineTool(
-  {
-    name: 'determineViolation',
-    description: 'Determines whether the news clipping contains a potential human rights violation.',
-    inputSchema: z.object({
-      text: z.string().describe('The text of the news clipping.'),
-    }),
-    outputSchema: z.boolean(),
-  },
-  async (input) => {
-    // Implement logic to determine if the clipping contains a violation.
-    // This is a placeholder; replace with actual implementation.
-    // For now, always return false.
-    return false;
-  }
-);
-
-
 const summarizeNewsClippingPrompt = ai.definePrompt({
   name: 'summarizeNewsClippingPrompt',
   input: {schema: SummarizeNewsClippingInputSchema},
   output: {schema: SummarizeNewsClippingOutputSchema},
-  tools: [determineViolation],
   prompt: `You are an AI assistant helping to summarize news clippings related to potential human rights violations.
 
-  Please provide a concise summary of the following news clipping:
+  Please provide a concise summary of the following news clipping. Based on the summary, determine if it describes a potential human rights violation and set the 'containsViolation' field to true or false.
 
   {{{text}}}
-
-  Also, use the determineViolation tool to assess whether the clipping contains a potential human rights violation.
 `,
 });
 
