@@ -18,7 +18,7 @@ const SummarizeNewsClippingInputSchema = z.object({
 export type SummarizeNewsClippingInput = z.infer<typeof SummarizeNewsClippingInputSchema>;
 
 const SummarizeNewsClippingOutputSchema = z.object({
-  summary: z.string().describe('A concise summary of the news clipping.'),
+  summary: z.string().describe('A concise summary of the single, most relevant human rights-related news clipping found in the text.'),
   containsViolation: z.boolean().describe('Whether the clipping contains a potential human rights violation.'),
 });
 export type SummarizeNewsClippingOutput = z.infer<typeof SummarizeNewsClippingOutputSchema>;
@@ -31,11 +31,20 @@ const summarizeNewsClippingPrompt = ai.definePrompt({
   name: 'summarizeNewsClippingPrompt',
   input: {schema: SummarizeNewsClippingInputSchema},
   output: {schema: SummarizeNewsClippingOutputSchema},
-  prompt: `You are an AI assistant helping to summarize news clippings related to potential human rights violations.
+  prompt: `You are an AI assistant for the National Human Rights Commission (NHRC). Your task is to analyze a block of text extracted from a newspaper page and identify articles related to potential human rights violations.
 
-  Please provide a concise summary of the following news clipping. Based on the summary, determine if it describes a potential human rights violation and set the 'containsViolation' field to true or false.
+Human rights violations include topics like: extrajudicial killings, torture, caste discrimination, communal violence, attacks on women and children, and violations of freedom of speech. General news about politics, economics, or health (like polio reduction) are NOT human rights violations unless they explicitly mention a rights-based issue.
 
-  {{{text}}}
+From the text below, please perform the following steps:
+1. Identify the single, most prominent news article that discusses a potential human rights violation.
+2. Extract the full text of only that specific article.
+3. Provide a concise summary of that extracted article.
+4. Based on your summary, determine if it describes a potential human rights violation and set the 'containsViolation' field to true or false.
+
+If no relevant articles are found, return an empty summary and set 'containsViolation' to false.
+
+Text to analyze:
+{{{text}}}
 `,
 });
 
