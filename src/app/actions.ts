@@ -40,6 +40,7 @@ export async function processClippingAction(
   }
 
   try {
+    // Correctly handle case where only a file is provided
     if (!text && file instanceof File && file.size > 0) {
         const buffer = Buffer.from(await file.arrayBuffer());
         const {imageTypeFromBuffer} = await (eval('import("image-type")') as Promise<typeof import('image-type')>);
@@ -56,7 +57,10 @@ export async function processClippingAction(
         
         const ocrResult = await extractTextFromImage({ photoDataUri });
         text = ocrResult.text;
-    } else if (!text) {
+    } 
+    
+    // After attempting OCR, if text is still empty, then it's an error.
+    if (!text) {
         return {
             message: 'Please provide either text or a file.',
             errors: { text: ['Please provide either text or a file.'] },
