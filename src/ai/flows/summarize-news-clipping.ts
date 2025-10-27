@@ -37,11 +37,10 @@ Human rights violations include topics like: extrajudicial killings, torture, ca
 
 From the text below, please perform the following steps:
 1. Identify the single, most prominent news article that discusses a potential human rights violation.
-2. Extract the full text of only that specific article.
-3. Provide a concise summary of that extracted article.
-4. Based on your summary, determine if it describes a potential human rights violation and set the 'containsViolation' field to true or false.
+2. Provide a concise summary of that specific article.
+3. Based on your summary, determine if it describes a potential human rights violation and set the 'containsViolation' field to true or false.
 
-If no relevant articles are found, return an empty summary and set 'containsViolation' to false.
+If no relevant articles are found, you MUST return an empty string for the summary and set 'containsViolation' to false.
 
 Text to analyze:
 {{{text}}}
@@ -56,6 +55,15 @@ const summarizeNewsClippingFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await summarizeNewsClippingPrompt(input);
-    return output!;
+    
+    // If the model fails to return a valid output, return a default "safe" response.
+    if (!output) {
+      return {
+        summary: '',
+        containsViolation: false,
+      };
+    }
+    
+    return output;
   }
 );
