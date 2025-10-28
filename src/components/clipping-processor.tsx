@@ -12,6 +12,7 @@ import {
   File as FileIcon,
   X,
   Save,
+  Newspaper,
 } from 'lucide-react';
 import * as React from 'react';
 
@@ -129,14 +130,14 @@ export function ClippingProcessor() {
         uploadDate: new Date().toISOString(),
         publicationDate: new Date().toISOString(), // Placeholder
         title: editableResult.summary.substring(0, 50) + '...',
-        content: editableResult.summary,
+        content: editableResult.extractedArticle, // Save the full extracted article
     };
     setDocumentNonBlocking(reportRef, newReport, {});
     toast({
         title: "Report Saved",
         description: "Your report has been successfully saved.",
       });
-  }
+  };
   
   const handleResultChange = (field: keyof AnalysisResult, value: string | number | boolean) => {
     if (editableResult) {
@@ -232,7 +233,7 @@ export function ClippingProcessor() {
         </CardContent>
       </Card>
 
-      {editableResult && (
+      {editableResult && editableResult.containsViolation && (
         <div className="lg:col-span-2 grid gap-8">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold">Analysis Results</h2>
@@ -242,6 +243,14 @@ export function ClippingProcessor() {
             </Button>
           </div>
           <div className="grid gap-4">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base font-medium flex items-center gap-4"><Newspaper className="text-accent" /> Extracted Article</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <Textarea value={editableResult.extractedArticle} readOnly className="min-h-[150px] bg-muted/50" />
+                </CardContent>
+             </Card>
              <Card>
                 <CardHeader>
                     <CardTitle className="text-base font-medium flex items-center gap-4"><Lightbulb className="text-accent" /> AI Summary</CardTitle>
@@ -254,7 +263,7 @@ export function ClippingProcessor() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-base font-medium flex items-center gap-4"><Tag className="text-accent" /> Category</CardTitle>
-                    </CardHeader>
+                    </Header>
                     <CardContent className="space-y-2">
                         <Input value={editableResult.category} onChange={(e) => handleResultChange('category', e.target.value)} />
                         <div className="flex items-center gap-2">
@@ -274,7 +283,7 @@ export function ClippingProcessor() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-base font-medium flex items-center gap-4"><FolderKanban className="text-accent" /> Assigned Thematic Area</CardTitle>
-                    </CardHeader>
+                    </Header>
                     <CardContent>
                         <Input value={editableResult.thematicArea} onChange={(e) => handleResultChange('thematicArea', e.target.value)} />
                     </CardContent>

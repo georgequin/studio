@@ -19,6 +19,7 @@ export type SummarizeNewsClippingInput = z.infer<typeof SummarizeNewsClippingInp
 
 const SummarizeNewsClippingOutputSchema = z.object({
   summary: z.string().describe('A concise summary of the single, most relevant human rights-related news clipping found in the text.'),
+  extractedArticle: z.string().describe('The full, verbatim text of the single most relevant human rights-related article found in the provided text.'),
   containsViolation: z.boolean().describe('Whether the clipping contains a potential human rights violation.'),
 });
 export type SummarizeNewsClippingOutput = z.infer<typeof SummarizeNewsClippingOutputSchema>;
@@ -29,23 +30,39 @@ export async function summarizeNewsClipping(input: SummarizeNewsClippingInput): 
 
 const summarizeNewsClippingPrompt = ai.definePrompt({
   name: 'summarizeNewsClippingPrompt',
-  input: {schema: SummarizeNewsClippingInputSchema},
-  output: {schema: SummarizeNewsClippingOutputSchema},
-  prompt: `You are an AI assistant for the National Human Rights Commission (NHRC). Your task is to analyze a block of text extracted from a newspaper page and identify articles related to potential human rights violations.
+  input: { schema: SummarizeNewsClippingInputSchema },
+  output: { schema: SummarizeNewsClippingOutputSchema },
+  prompt: `
+You are an AI analyst for the National Human Rights Commission (NHRC).
+Your task is to analyze text from a newspaper page and identify the single most
+relevant article concerning a potential human rights violation.
 
-Human rights violations include topics like: extrajudicial killings, torture, caste discrimination, communal violence, attacks on women and children, and violations of freedom of speech. General news about politics, economics, or health (like polio reduction) are NOT human rights violations unless they explicitly mention a rights-based issue.
+### INSTRUCTIONS
 
-From the text below, please perform the following steps:
-1. Identify the single, most prominent news article that discusses a potential human rights violation.
-2. Provide a concise summary of that specific article.
-3. Based on your summary, determine if it describes a potential human rights violation and set the 'containsViolation' field to true or false.
+1.  **Scan and Identify**: Read the entire text and find the single most relevant article discussing a potential human rights issue. Ignore advertisements, stock prices, and articles on topics like general politics, sports, or economics unless they directly involve a human rights concern (e.g., athlete protests, corruption leading to rights abuses).
 
-If no relevant articles are found, you MUST return an empty string for the summary and set 'containsViolation' to false.
+2.  **Extract Verbatim**: Once you've identified the article, extract its full text exactly as it appears. Do not shorten or alter it. This is for the \`extractedArticle\` field.
 
-Text to analyze:
+3.  **Summarize**: Write a concise, 2-4 sentence summary of the article you extracted. This summary is for the \`summary\` field.
+
+4.  **Flag Violation**: Set \`containsViolation\` to \`true\` if you found a relevant article, and \`false\` if you did not.
+
+5.  **No Relevant Article**: If no part of the text discusses anything related to human rights, return an empty string for both \`extractedArticle\` and \`summary\`, and set \`containsViolation\` to \`false\`.
+
+### Output Requirements
+Return a JSON object with the following structure:
+{
+  "extractedArticle": "The full, verbatim text of the human rights article...",
+  "summary": "A concise, 2-4 sentence summary of the extracted article.",
+  "containsViolation": true
+}
+
+Now analyze the text below:
+
 {{{text}}}
 `,
 });
+
 
 const summarizeNewsClippingFlow = ai.defineFlow(
   {
@@ -60,6 +77,7 @@ const summarizeNewsClippingFlow = ai.defineFlow(
     if (!output) {
       return {
         summary: '',
+        extractedArticle: '',
         containsViolation: false,
       };
     }

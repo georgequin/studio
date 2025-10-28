@@ -8,7 +8,7 @@ export type Report = {
   category: keyof typeof THEMATIC_AREA_MAP;
   summary: string;
   thematicArea: string;
-  content: string;
+  content: string; // This now holds the full extracted article
   userId: string;
   uploadDate: string;
 };

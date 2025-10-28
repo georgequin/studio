@@ -13,6 +13,7 @@ const inputSchema = z.object({
 
 export type AnalysisResult = {
   summary: string;
+  extractedArticle: string;
   containsViolation: boolean;
   category: string;
   confidence: number;
@@ -39,10 +40,8 @@ export async function processClippingAction(
   }
 
   try {
-    // Correctly handle case where only a file is provided
     if (!text && file instanceof File && file.size > 0) {
         const buffer = Buffer.from(await file.arrayBuffer());
-        // Correctly import the ESM module 'image-type'
         const imageType = await (eval('import("image-type")') as Promise<typeof import('image-type')>);
         const type = await imageType.default(buffer);
 
@@ -60,7 +59,6 @@ export async function processClippingAction(
         text = ocrResult.text;
     } 
     
-    // After attempting OCR, if text is still empty, then it's an error.
     if (!text) {
         return {
             message: 'Please provide either text or a file.',
@@ -72,7 +70,7 @@ export async function processClippingAction(
 
     const [summaryResult, categoryResult] = await Promise.all([
       summarizeNewsClipping({ text }),
-      categorizeNewsClipping({ text }),
+      categorizeNewsClipping({ text: summaryResult.extractedArticle || text }), // Categorize based on extracted article if available
     ]);
 
     if (!summaryResult || !categoryResult) {
