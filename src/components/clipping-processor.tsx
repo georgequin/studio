@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useActionState } from 'react';
@@ -253,7 +254,7 @@ export function ClippingProcessor() {
              <Card>
                 <CardHeader>
                     <CardTitle className="text-base font-medium flex items-center gap-4"><Lightbulb className="text-accent" /> AI Summary</CardTitle>
-                </CardHeader>
+                </Header>
                 <CardContent>
                     <Textarea value={editableResult.summary} onChange={(e) => handleResultChange('summary', e.target.value)} className="min-h-[120px]" />
                 </CardContent>
