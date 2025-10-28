@@ -145,7 +145,6 @@ export function ClippingProcessor() {
     }
   };
 
-
   return (
     <div className="grid gap-8 lg:grid-cols-2">
       <Card className="lg:col-span-2">
