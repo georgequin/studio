@@ -253,7 +253,7 @@ export function ClippingProcessor() {
              <Card>
                 <CardHeader>
                     <CardTitle className="text-base font-medium flex items-center gap-4"><Lightbulb className="text-accent" /> AI Summary</CardTitle>
-                </Header>
+                </CardHeader>
                 <CardContent>
                     <Textarea value={editableResult.summary} onChange={(e) => handleResultChange('summary', e.target.value)} className="min-h-[120px]" />
                 </CardContent>
@@ -262,7 +262,7 @@ export function ClippingProcessor() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-base font-medium flex items-center gap-4"><Tag className="text-accent" /> Category</CardTitle>
-                    </Header>
+                    </CardHeader>
                     <CardContent className="space-y-2">
                         <Input value={editableResult.category} onChange={(e) => handleResultChange('category', e.target.value)} />
                         <div className="flex items-center gap-2">
@@ -282,7 +282,7 @@ export function ClippingProcessor() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-base font-medium flex items-center gap-4"><FolderKanban className="text-accent" /> Assigned Thematic Area</CardTitle>
-                    </Header>
+                    </CardHeader>
                     <CardContent>
                         <Input value={editableResult.thematicArea} onChange={(e) => handleResultChange('thematicArea', e.target.value)} />
                     </CardContent>

@@ -67,14 +67,14 @@ export async function processClippingAction(
         }
     }
 
+    const summaryResult = await summarizeNewsClipping({ text });
+    if (!summaryResult) {
+      throw new Error('AI summarization failed to return a result.');
+    }
 
-    const [summaryResult, categoryResult] = await Promise.all([
-      summarizeNewsClipping({ text }),
-      categorizeNewsClipping({ text: summaryResult.extractedArticle || text }), // Categorize based on extracted article if available
-    ]);
-
-    if (!summaryResult || !categoryResult) {
-      throw new Error('AI processing failed to return a result.');
+    const categoryResult = await categorizeNewsClipping({ text: summaryResult.extractedArticle || text });
+    if (!categoryResult) {
+      throw new Error('AI categorization failed to return a result.');
     }
 
     const thematicArea = THEMATIC_AREA_MAP[categoryResult.category as keyof typeof THEMATIC_AREA_MAP] || 'Unassigned';
