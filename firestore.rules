@@ -1,19 +1,143 @@
 /**
  * @file Firestore Security Rules
- * @description This ruleset allows all users (authenticated or not) to perform any action
- *              on all collections and documents. This configuration is completely open
- *              and intended for development, testing, or public demo environments only.
- *
- * ⚠️ WARNING:
- * These rules disable all Firestore security. Any user can read, write, update,
- * or delete any document in your database. Never use this in production.
+ * @description This ruleset enforces a strict user-ownership model for draft reports, while allowing public read access to sources, categories, departments and reports.
+ * @dataStructure
+ * - /users/{userId}/draft_reports/{reportId}: Stores draft reports, accessible only by the owning user.
+ * - /reports/{reportId}: Stores finalized reports. Publicly readable, but create, update, and delete are restricted to the owner.
+ * - /sources/{sourceId}: Stores news sources. Publicly readable.
+ * - /categories/{categoryId}: Stores report categories. Publicly readable.
+ * - /departments/{departmentId}: Stores departments. Publicly readable.
+ * @keySecurityDecisions
+ * - Draft reports are strictly owned by the user and stored under their userId.
+ * - Reports collection is publicly readable to allow for open access.
+ * - Sources, categories, and departments are publicly readable to allow ease of querying for all users.
+ * - Write access to the reports collection is restricted to the owner of the report, based on the userId.
+ * @denormalizationForAuthorization
+ * - Reports documents have the userId denormalized onto the document to avoid the need for additional `get()` calls in the security rules.
+ * @structuralSegregation
+ * - Private draft reports are stored in a user subcollection, while public reports are stored in a top-level collection.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow all read and write operations on all documents
-    match /{document=**} {
-      allow read, write: if true;
+
+    /**
+     * @description Checks if the request is authenticated.
+     * @returns {boolean} True if the request is authenticated, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the request is made by the owner of the resource.
+     * @param {string} userId The user ID to compare against the request's auth UID.
+     * @returns {boolean} True if the request is made by the owner, false otherwise.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the request is made by the existing owner of the resource.
+     * @param {string} userId The user ID to compare against the resource's userId.
+     * @returns {boolean} True if the request is made by the existing owner, false otherwise.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Rule for documents in the /users/{userId}/draft_reports/{reportId} path.
+     * @path /users/{userId}/draft_reports/{reportId}
+     * @allow (create) User OwDB00O9uQZQTSRygVpaOoc06ck1 can create a draft report with userId: OwDB00O9uQZQTSRygVpaOoc06ck1.
+     * @allow (get) User OwDB00O9uQZQTSRygVpaOoc06ck1 can get their own draft report.
+     * @allow (update) User OwDB00O9uQZQTSRygVpaOoc06ck1 can update their own draft report.
+     * @allow (delete) User OwDB00O9uQZQTSRygVpaOoc06ck1 can delete their own draft report.
+     * @deny (create) User AnotherUser cannot create a draft report for user OwDB00O9uQZQTSRygVpaOoc06ck1.
+     * @deny (update) User AnotherUser cannot update the draft report of user OwDB00O9uQZQTSRygVpaOoc06ck1.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId}/draft_reports/{reportId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rule for documents in the /reports/{reportId} path.
+     * @path /reports/{reportId}
+     * @allow (get) Any user can read a report.
+     * @allow (list) Any user can list reports.
+     * @allow (create) User OwDB00O9uQZQTSRygVpaOoc06ck1 can create a report with userId: OwDB00O9uQZQTSRygVpaOoc06ck1.
+     * @allow (update) User OwDB00O9uQZQTSRygVpaOoc06ck1 can update their own report.
+     * @allow (delete) User OwDB00O9uQZQTSRygVpaOoc06ck1 can delete their own report.
+     * @deny (create) User AnotherUser cannot create a report for user OwDB00O9uQZQTSRygVpaOoc06ck1.
+     * @deny (update) User AnotherUser cannot update the report of user OwDB00O9uQZQTSRygVpaOoc06ck1.
+     * @principle Allows public read access but restricts writes to the owner.
+     */
+    match /reports/{reportId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(resource.data.userId);
+    }
+
+    /**
+     * @description Rule for documents in the /sources/{sourceId} path.
+     * @path /sources/{sourceId}
+     * @allow (get) Any user can read a source.
+     * @allow (list) Any user can list sources.
+     * @deny (create) No user can create a source. // TODO: Add owner validation once the schema is updated with an ownership field.
+     * @deny (update) No user can update a source. // TODO: Add owner validation once the schema is updated with an ownership field.
+     * @deny (delete) No user can delete a source. // TODO: Add owner validation once the schema is updated with an ownership field.
+     * @principle Allows public read access but restricts writes.
+     */
+    match /sources/{sourceId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;  // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update: if false;  // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow delete: if false;  // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Rule for documents in the /categories/{categoryId} path.
+     * @path /categories/{categoryId}
+     * @allow (get) Any user can read a category.
+     * @allow (list) Any user can list categories.
+     * @deny (create) No user can create a category. // TODO: Add owner validation once the schema is updated with an ownership field.
+     * @deny (update) No user can update a category. // TODO: Add owner validation once the schema is updated with an ownership field.
+     * @deny (delete) No user can delete a category. // TODO: Add owner validation once the schema is updated with an ownership field.
+     * @principle Allows public read access but restricts writes.
+     */
+    match /categories/{categoryId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;  // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update: if false;  // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow delete: if false;  // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+
+    /**
+     * @description Rule for documents in the /departments/{departmentId} path.
+     * @path /departments/{departmentId}
+     * @allow (get) Any user can read a department.
+     * @allow (list) Any user can list departments.
+     * @deny (create) No user can create a department. // TODO: Add owner validation once the schema is updated with an ownership field.
+     * @deny (update) No user can update a department. // TODO: Add owner validation once the schema is updated with an ownership field.
+     * @deny (delete) No user can delete a department. // TODO: Add owner validation once the schema is updated with an ownership field.
+     * @principle Allows public read access but restricts writes.
+     */
+    match /departments/{departmentId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;  // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update: if false;  // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow delete: if false;  // TODO: Add owner validation once the schema is updated with an ownership field.
     }
   }
 }
