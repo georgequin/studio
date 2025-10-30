@@ -45,11 +45,16 @@ import { collection, doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 
-const initialState = {
+const initialState: {
+  message: string | null;
+  errors: any | null;
+  data: AnalysisResult[] | null;
+} = {
   message: null,
   errors: null,
   data: null,
 };
+
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -67,13 +72,87 @@ function SubmitButton() {
   );
 }
 
+const AnalysisResultCard = ({
+    result, 
+    sourceId, 
+    onSave,
+    onUpdate,
+    index
+}: { 
+    result: AnalysisResult; 
+    sourceId: string;
+    onSave: () => void;
+    onUpdate: (field: keyof AnalysisResult, value: string | number) => void;
+    index: number;
+}) => {
+    return (
+        <div className="lg:col-span-2 grid gap-8 border-t pt-8">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold">Analysis Result #{index + 1}</h2>
+            <Button onClick={onSave} disabled={!sourceId}>
+              <Save className="mr-2" />
+              Save Report
+            </Button>
+          </div>
+          <div className="grid gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base font-medium flex items-center gap-4"><Newspaper className="text-accent" /> Extracted Article</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea value={result.extractedArticle} readOnly className="min-h-[150px] bg-muted/50" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base font-medium flex items-center gap-4"><Lightbulb className="text-accent" /> AI Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea value={result.summary} onChange={(e) => onUpdate('summary', e.target.value)} className="min-h-[120px]" />
+              </CardContent>
+            </Card>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base font-medium flex items-center gap-4"><Tag className="text-accent" /> Category</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Input value={result.category} onChange={(e) => onUpdate('category', e.target.value)} />
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      Confidence:
+                    </span>
+                    <Progress
+                      value={result.confidence * 100}
+                      className="w-[60%]"
+                    />
+                    <span className="text-sm font-medium">
+                      {Math.round(result.confidence * 100)}%
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base font-medium flex items-center gap-4"><FolderKanban className="text-accent" /> Assigned Thematic Area</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Input value={result.thematicArea} onChange={(e) => onUpdate('thematicArea', e.target.value)} />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+    )
+}
+
 export function ClippingProcessor() {
   const [state, formAction] = useActionState(processClippingAction, initialState);
   const clippingImage = PlaceHolderImages.find(
     (img) => img.id === 'clipping-upload'
   );
 
-  const [editableResult, setEditableResult] = React.useState<AnalysisResult | null>(null);
+  const [editableResults, setEditableResults] = React.useState<AnalysisResult[] | null>(null);
   const { toast } = useToast();
 
   const [hasCameraPermission, setHasCameraPermission] = React.useState<boolean | null>(null);
@@ -83,14 +162,16 @@ export function ClippingProcessor() {
 
   React.useEffect(() => {
     if (state.data) {
-      setEditableResult(state.data);
+        setEditableResults(state.data);
     }
-    if (state.message && state.message !== 'Analysis complete.') {
-      toast({
-        variant: 'destructive',
-        title: 'Processing Failed',
-        description: state.message,
-      });
+    if (state.message && (state.message !== 'Analysis complete.' || state.data?.length === 0)) {
+        const variant = state.errors || state.data?.length === 0 ? 'default' : 'destructive';
+        const title = state.errors ? 'Processing Failed' : 'Analysis Complete';
+        toast({
+            variant: variant,
+            title: title,
+            description: state.message,
+        });
     }
   }, [state, toast]);
 
@@ -168,18 +249,18 @@ export function ClippingProcessor() {
   };
 
 
-  const handleSaveReport = () => {
-    if (!editableResult || !user || !sourceId || !firestore) return;
+  const handleSaveReport = (resultToSave: AnalysisResult) => {
+    if (!resultToSave || !user || !sourceId || !firestore) return;
     const reportRef = doc(collection(firestore, 'reports'));
     const newReport = {
-      ...editableResult,
+      ...resultToSave,
       id: reportRef.id,
       sourceId: sourceId,
       userId: user.uid,
       uploadDate: new Date().toISOString(),
       publicationDate: new Date().toISOString(), // Placeholder
-      title: editableResult.summary.substring(0, 50) + '...',
-      content: editableResult.extractedArticle, // Save the full extracted article
+      title: resultToSave.summary.substring(0, 50) + '...',
+      content: resultToSave.extractedArticle, // Save the full extracted article
     };
     setDocumentNonBlocking(reportRef, newReport, {});
     toast({
@@ -188,9 +269,11 @@ export function ClippingProcessor() {
     });
   };
 
-  const handleResultChange = (field: keyof AnalysisResult, value: string | number | boolean) => {
-    if (editableResult) {
-      setEditableResult({ ...editableResult, [field]: value });
+  const handleResultChange = (index: number, field: keyof AnalysisResult, value: string | number | boolean) => {
+    if (editableResults) {
+        const newResults = [...editableResults];
+        newResults[index] = { ...newResults[index], [field]: value };
+        setEditableResults(newResults);
     }
   };
 
@@ -330,65 +413,16 @@ export function ClippingProcessor() {
         </CardContent>
       </Card>
 
-      {editableResult && editableResult.containsViolation && (
-        <div className="lg:col-span-2 grid gap-8">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Analysis Results</h2>
-            <Button onClick={handleSaveReport} disabled={!user}>
-              <Save className="mr-2" />
-              Save Report
-            </Button>
-          </div>
-          <div className="grid gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base font-medium flex items-center gap-4"><Newspaper className="text-accent" /> Extracted Article</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea value={editableResult.extractedArticle} readOnly className="min-h-[150px] bg-muted/50" />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base font-medium flex items-center gap-4"><Lightbulb className="text-accent" /> AI Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea value={editableResult.summary} onChange={(e) => handleResultChange('summary', e.target.value)} className="min-h-[120px]" />
-              </CardContent>
-            </Card>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base font-medium flex items-center gap-4"><Tag className="text-accent" /> Category</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Input value={editableResult.category} onChange={(e) => handleResultChange('category', e.target.value)} />
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      Confidence:
-                    </span>
-                    <Progress
-                      value={editableResult.confidence * 100}
-                      className="w-[60%]"
-                    />
-                    <span className="text-sm font-medium">
-                      {Math.round(editableResult.confidence * 100)}%
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base font-medium flex items-center gap-4"><FolderKanban className="text-accent" /> Assigned Thematic Area</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Input value={editableResult.thematicArea} onChange={(e) => handleResultChange('thematicArea', e.target.value)} />
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
-      )}
+      {editableResults && editableResults.length > 0 && editableResults.map((result, index) => (
+          <AnalysisResultCard 
+            key={index}
+            index={index}
+            result={result}
+            sourceId={sourceId}
+            onSave={() => handleSaveReport(result)}
+            onUpdate={(field, value) => handleResultChange(index, field, value)}
+          />
+      ))}
     </div>
   );
 }

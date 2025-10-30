@@ -71,36 +71,39 @@ export async function processClippingAction(
     }
 
     const summaryResult = await summarizeNewsClipping({ text: textToProcess });
-    if (!summaryResult) {
+    if (!summaryResult || !summaryResult.articles) {
       throw new Error('AI summarization failed to return a result.');
     }
 
     // If no violation is found, we can stop here.
-    if (!summaryResult.containsViolation) {
+    if (summaryResult.articles.length === 0) {
         return {
             message: 'Analysis complete. No human rights violations were found in the provided text.',
             errors: null,
-            data: { ...summaryResult, category: 'N/A', confidence: 0, thematicArea: 'N/A' },
+            data: [],
+        }
+    }
+    
+    const analysisResults: AnalysisResult[] = [];
+
+    for (const article of summaryResult.articles) {
+        if (article.containsViolation) {
+            const categoryResult = await categorizeNewsClipping({ text: article.extractedArticle });
+            const thematicArea = THEMATIC_AREA_MAP[categoryResult.category as keyof typeof THEMATIC_AREA_MAP] || 'Unassigned';
+            
+            analysisResults.push({
+                ...article,
+                ...categoryResult,
+                thematicArea,
+            });
         }
     }
 
-    const categoryResult = await categorizeNewsClipping({ text: summaryResult.extractedArticle || textToProcess });
-    if (!categoryResult) {
-      throw new Error('AI categorization failed to return a result.');
-    }
-
-    const thematicArea = THEMATIC_AREA_MAP[categoryResult.category as keyof typeof THEMATIC_AREA_MAP] || 'Unassigned';
-
-    const resultData: AnalysisResult = {
-      ...summaryResult,
-      ...categoryResult,
-      thematicArea,
-    };
 
     return {
       message: 'Analysis complete.',
       errors: null,
-      data: resultData,
+      data: analysisResults,
     };
   } catch (error) {
     console.error(error);
