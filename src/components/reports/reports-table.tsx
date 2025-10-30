@@ -36,18 +36,18 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { Report } from '@/lib/types';
+import type { Report, Source } from '@/lib/types';
 import { CATEGORY_COLORS } from '@/lib/thematic-areas';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
-const convertToCSV = (data: Report[]) => {
-  const headers = ['ID', 'Publication Date', 'Title', 'Source ID', 'Category', 'Thematic Area', 'Summary'];
+const convertToCSV = (data: Report[], sourceMap: Map<string, string>) => {
+  const headers = ['ID', 'Publication Date', 'Title', 'Source', 'Category', 'Thematic Area', 'Summary'];
   const rows = data.map(d => [
     d.id,
     d.publicationDate,
     `"${d.title.replace(/"/g, '""')}"`,
-    d.sourceId,
+    sourceMap.get(d.sourceId) || d.sourceId,
     d.category,
     d.thematicArea,
     `"${d.summary.replace(/"/g, '""')}"`
@@ -55,8 +55,8 @@ const convertToCSV = (data: Report[]) => {
   return [headers.join(','), ...rows].join('\n');
 };
 
-const downloadCSV = (data: Report[]) => {
-  const csvString = convertToCSV(data);
+const downloadCSV = (data: Report[], sourceMap: Map<string, string>) => {
+  const csvString = convertToCSV(data, sourceMap);
   const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
@@ -69,7 +69,7 @@ const downloadCSV = (data: Report[]) => {
 };
 
 
-export const columns: ColumnDef<Report>[] = [
+export const getColumns = (sourceMap: Map<string, string>): ColumnDef<Report>[] => [
   {
     accessorKey: 'publicationDate',
     header: ({ column }) => {
@@ -92,8 +92,8 @@ export const columns: ColumnDef<Report>[] = [
   },
   {
     accessorKey: 'sourceId',
-    header: 'Source ID',
-    cell: ({ row }) => <div>{row.getValue('sourceId')}</div>,
+    header: 'Source',
+    cell: ({ row }) => <div>{sourceMap.get(row.getValue('sourceId')) || 'Unknown Source'}</div>,
   },
   {
     accessorKey: 'category',
@@ -119,13 +119,30 @@ export const columns: ColumnDef<Report>[] = [
 
 export function ReportsTable() {
   const firestore = useFirestore();
+
   const reportsCollection = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'reports');
   }, [firestore]);
-  const { data: reports, isLoading } = useCollection<Report>(reportsCollection);
+  const { data: reports, isLoading: reportsLoading } = useCollection<Report>(reportsCollection);
 
+  const sourcesCollection = useMemoFirebase(() => {
+    if(!firestore) return null;
+    return collection(firestore, 'sources');
+  }, [firestore]);
+  const { data: sources, isLoading: sourcesLoading } = useCollection<Source>(sourcesCollection);
+
+  const sourceMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    sources?.forEach(source => {
+      map.set(source.id, source.name);
+    });
+    return map;
+  }, [sources]);
+  
+  const isLoading = reportsLoading || sourcesLoading;
   const data = reports || [];
+  const columns = React.useMemo(() => getColumns(sourceMap), [sourceMap]);
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -182,13 +199,13 @@ export function ReportsTable() {
                       column.toggleVisibility(!!value)
                     }
                   >
-                    {column.id}
+                    {column.id === 'sourceId' ? 'Source' : column.id}
                   </DropdownMenuCheckboxItem>
                 );
               })}
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button variant="default" onClick={() => downloadCSV(data)}>
+        <Button variant="default" onClick={() => downloadCSV(data, sourceMap)} disabled={isLoading || data.length === 0}>
           <Download className="mr-2"/>
           Export CSV
         </Button>
