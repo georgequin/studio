@@ -76,12 +76,14 @@ const AnalysisResultCard = ({
     result, 
     onSave,
     onUpdate,
-    index
+    index,
+    isSavingDisabled,
 }: { 
     result: AnalysisResult; 
     onSave: () => void;
     onUpdate: (field: keyof AnalysisResult, value: string | number) => void;
     index: number;
+    isSavingDisabled: boolean;
 }) => {
     return (
         <div className="lg:col-span-2 grid gap-8 border-t pt-8">
@@ -165,14 +167,25 @@ export function ClippingProcessor() {
   }, [state.data]);
 
   React.useEffect(() => {
-    if (state.message && (state.message !== 'Analysis complete.' || (state.data && state.data.length === 0))) {
-        const variant = state.errors || (state.data && state.data.length === 0) ? 'default' : 'destructive';
-        const title = state.errors ? 'Processing Failed' : 'Analysis Complete';
+    // Only show toast if message exists.
+    // Differentiate between success with no results and an actual error.
+    if (state.message) {
+      if (state.errors) {
+        // Error case
         toast({
-            variant: variant,
-            title: title,
-            description: state.message,
+          variant: 'destructive',
+          title: 'Processing Failed',
+          description: state.message,
         });
+      } else if (state.data && state.data.length === 0) {
+        // Success, but no violations found
+        toast({
+          variant: 'default',
+          title: 'Analysis Complete',
+          description: state.message,
+        });
+      }
+      // We don't show a toast for the main success case, as the results appear on screen.
     }
   }, [state.message, state.data, state.errors, toast]);
 
@@ -272,7 +285,7 @@ export function ClippingProcessor() {
       title: resultToSave.summary.substring(0, 50) + '...',
       content: resultToSave.extractedArticle, // Save the full extracted article
     };
-    setDocumentNonBlocking(reportRef, newReport, {});
+    setDocumentNonBlocking(reportRef, newReport, { merge: true });
     toast({
       title: "Report Saved",
       description: "Your report has been successfully saved.",
@@ -423,14 +436,15 @@ export function ClippingProcessor() {
         </CardContent>
       </Card>
 
-      {editableResults && editableResults.length > 0 && editableResults.map((result, index) => (
-          <AnalysisResultCard 
-            key={index}
-            index={index}
-            result={result}
-            onSave={() => handleSaveReport(result)}
-            onUpdate={(field, value) => handleResultChange(index, field, value)}
-          />
+      {editableResults && editableResults.map((result, index) => (
+        <AnalysisResultCard
+          key={index}
+          index={index}
+          result={result}
+          onSave={() => handleSaveReport(result)}
+          onUpdate={(field, value) => handleResultChange(index, field, value as string | number)}
+          isSavingDisabled={!sourceId}
+        />
       ))}
     </div>
   );
