@@ -5,6 +5,7 @@ import {
   ArrowUpDown,
   ChevronDown,
   Download,
+  Eye,
 } from 'lucide-react';
 import {
   ColumnDef,
@@ -21,6 +22,14 @@ import {
 
 import { Button } from '@/components/ui/button';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -36,6 +45,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Report, Source } from '@/lib/types';
 import { CATEGORY_COLORS } from '@/lib/thematic-areas';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
@@ -115,6 +125,53 @@ export const getColumns = (sourceMap: Map<string, string>): ColumnDef<Report>[] 
       <div className="capitalize">{row.getValue('thematicArea')}</div>
     ),
   },
+  {
+    id: 'actions',
+    cell: ({ row }) => {
+      const report = row.original;
+
+      return (
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <Eye className="h-4 w-4" />
+              <span className="sr-only">View Details</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{report.title}</DialogTitle>
+              <DialogDescription>
+                {sourceMap.get(report.sourceId) || 'Unknown Source'} &middot; {new Date(report.publicationDate).toLocaleDateString()}
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="max-h-[60vh] pr-6">
+            <div className="grid gap-4 py-4">
+                <div className="space-y-1">
+                    <h4 className="font-semibold">Summary</h4>
+                    <p className="text-sm text-muted-foreground">{report.summary}</p>
+                </div>
+                 <div className="space-y-1">
+                    <h4 className="font-semibold">Full Extracted Article</h4>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{report.content}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                        <h4 className="font-semibold">Category</h4>
+                        <p className="text-sm text-muted-foreground">{report.category}</p>
+                    </div>
+                     <div className="space-y-1">
+                        <h4 className="font-semibold">Thematic Area</h4>
+                        <p className="text-sm text-muted-foreground">{report.thematicArea}</p>
+                    </div>
+                </div>
+            </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+      )
+    }
+  }
 ];
 
 export function ReportsTable() {
