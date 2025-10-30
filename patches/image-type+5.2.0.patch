@@ -1,0 +1,50 @@
+diff --git a/node_modules/image-type/index.js b/node_modules/image-type/index.js
+index 45b85fe..5124a2f 100644
+--- a/node_modules/image-type/index.js
++++ b/node_modules/image-type/index.js
+@@ -1,5 +1,7 @@
+ import {fileTypeFromBuffer} from 'file-type';
+ 
+ export default async function imageType(input) {
+-	return fileTypeFromBuffer(input);
++	const fileType = await fileTypeFromBuffer(input);
++	return fileType && isImage(fileType.ext) ? fileType : undefined;
+ }
++
++const imageExtensions = new Set(['jpg', 'png', 'gif', 'webp', 'flif', 'cr2', 'tif', 'bmp', 'jxr', 'psd', 'ico', 'heic', 'dwg', 'avif', 'j2c', 'jp2', 'jpx', 'jpm', 'mj2']);
++const isImage = (ext) => imageExtensions.has(ext);
+diff --git a/node_modules/image-type/package.json b/node_modules/image-type/package.json
+index ce265e1..f472851 100644
+--- a/node_modules/image-type/package.json
++++ b/node_modules/image-type/package.json
+@@ -37,5 +37,8 @@
+ 	"xo": {
+ 		"rules": {
+ 			"unicorn/no-abusive-eslint-disable": "off"
++		},
++		"browser": {
++			"./index.js": "./index.browser.js"
+ 		}
+ 	}
+ }
+diff --git a/node_modules/image-type/readme.md b/node_modules/image-type/readme.md
+index a081f9b..1f68e6e 100644
+--- a/node_modules/image-type/readme.md
++++ b/node_modules/image-type/readme.md
+@@ -1,6 +1,6 @@
+ # image-type
+ 
+-> Detect the image type of a Buffer/Uint8Array
++> Detect the image type of a `Buffer`/`Uint8Array`
+ 
+ It can detect `jpg`, `png`, `gif`, `webp`, `flif`, `cr2`, `tif`, `bmp`, `jxr`, `psd`, `ico`, `heic`, `dwg`, `avif`, `j2c`, `jp2`, `jpx`, `jpm`, and `mj2`.
+ 
+@@ -11,7 +11,7 @@
+ const readChunk = require('read-chunk');
+ const imageType = require('image-type');
+ 
+-const buffer = readChunk.sync('unicorn.png', 0, 12);
++const buffer = readChunk.sync('unicorn.png', {start: 0, length: 12});
+ 
+ imageType(buffer);
+ //=> {ext: 'png', mime: 'image/png'}

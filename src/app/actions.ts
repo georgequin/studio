@@ -41,12 +41,13 @@ export async function processClippingAction(
 
   try {
     if (files.length > 0) {
+        // Dynamically import image-type
+        const {default: imageType} = await eval('import("image-type")');
         let allExtractedText = '';
         for (const file of files) {
              if (file instanceof File && file.size > 0) {
                 const buffer = Buffer.from(await file.arrayBuffer());
-                const imageType = await (eval('import("image-type")') as Promise<typeof import('image-type')>);
-                const type = await imageType.default(buffer);
+                const type = await imageType(buffer);
         
                 if (!type) {
                     console.warn(`Skipping a file of unknown type: ${file.name}`);
