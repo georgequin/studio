@@ -29,7 +29,7 @@ export async function processClippingAction(
   });
   
   const file = formData.get('file');
-  let text = validatedFields.success ? validatedFields.data.text : '';
+  let textToProcess = validatedFields.success ? validatedFields.data.text : '';
 
   if (!validatedFields.success) {
     return {
@@ -40,7 +40,7 @@ export async function processClippingAction(
   }
 
   try {
-    if (!text && file instanceof File && file.size > 0) {
+    if (!textToProcess && file instanceof File && file.size > 0) {
         const buffer = Buffer.from(await file.arrayBuffer());
         const imageType = await (eval('import("image-type")') as Promise<typeof import('image-type')>);
         const type = await imageType.default(buffer);
@@ -56,10 +56,10 @@ export async function processClippingAction(
         const photoDataUri = `data:${type.mime};base64,${buffer.toString('base64')}`;
         
         const ocrResult = await extractTextFromImage({ photoDataUri });
-        text = ocrResult.text;
+        textToProcess = ocrResult.text;
     } 
     
-    if (!text) {
+    if (!textToProcess) {
         return {
             message: 'Please provide either text or a file.',
             errors: { text: ['Please provide either text or a file.'] },
@@ -67,12 +67,12 @@ export async function processClippingAction(
         }
     }
 
-    const summaryResult = await summarizeNewsClipping({ text });
+    const summaryResult = await summarizeNewsClipping({ text: textToProcess });
     if (!summaryResult) {
       throw new Error('AI summarization failed to return a result.');
     }
 
-    const categoryResult = await categorizeNewsClipping({ text: summaryResult.extractedArticle || text });
+    const categoryResult = await categorizeNewsClipping({ text: summaryResult.extractedArticle || textToProcess });
     if (!categoryResult) {
       throw new Error('AI categorization failed to return a result.');
     }
