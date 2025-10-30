@@ -164,8 +164,11 @@ export function ClippingProcessor() {
     if (state.data) {
         setEditableResults(state.data);
     }
-    if (state.message && (state.message !== 'Analysis complete.' || state.data?.length === 0)) {
-        const variant = state.errors || state.data?.length === 0 ? 'default' : 'destructive';
+  }, [state.data]);
+
+  React.useEffect(() => {
+    if (state.message && (state.message !== 'Analysis complete.' || (state.data && state.data.length === 0))) {
+        const variant = state.errors || (state.data && state.data.length === 0) ? 'default' : 'destructive';
         const title = state.errors ? 'Processing Failed' : 'Analysis Complete';
         toast({
             variant: variant,
@@ -173,7 +176,8 @@ export function ClippingProcessor() {
             description: state.message,
         });
     }
-  }, [state, toast]);
+  }, [state.message, state.data, state.errors, toast]);
+
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
