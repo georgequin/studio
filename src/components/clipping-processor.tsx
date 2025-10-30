@@ -74,13 +74,11 @@ function SubmitButton() {
 
 const AnalysisResultCard = ({
     result, 
-    sourceId, 
     onSave,
     onUpdate,
     index
 }: { 
     result: AnalysisResult; 
-    sourceId: string;
     onSave: () => void;
     onUpdate: (field: keyof AnalysisResult, value: string | number) => void;
     index: number;
@@ -89,7 +87,7 @@ const AnalysisResultCard = ({
         <div className="lg:col-span-2 grid gap-8 border-t pt-8">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold">Analysis Result #{index + 1}</h2>
-            <Button onClick={onSave} disabled={!sourceId}>
+            <Button onClick={onSave}>
               <Save className="mr-2" />
               Save Report
             </Button>
@@ -254,7 +252,15 @@ export function ClippingProcessor() {
 
 
   const handleSaveReport = (resultToSave: AnalysisResult) => {
-    if (!resultToSave || !user || !sourceId || !firestore) return;
+    if (!resultToSave || !user || !firestore) return;
+    if (!sourceId) {
+      toast({
+        variant: "destructive",
+        title: "Source not selected",
+        description: "Please select a news source before saving the report.",
+      });
+      return;
+    }
     const reportRef = doc(collection(firestore, 'reports'));
     const newReport = {
       ...resultToSave,
@@ -422,7 +428,6 @@ export function ClippingProcessor() {
             key={index}
             index={index}
             result={result}
-            sourceId={sourceId}
             onSave={() => handleSaveReport(result)}
             onUpdate={(field, value) => handleResultChange(index, field, value)}
           />
