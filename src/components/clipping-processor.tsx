@@ -89,7 +89,7 @@ const AnalysisResultCard = ({
         <div className="lg:col-span-2 grid gap-8 border-t pt-8">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold">Analysis Result #{index + 1}</h2>
-            <Button onClick={onSave}>
+            <Button onClick={onSave} disabled={isSavingDisabled}>
               <Save className="mr-2" />
               Save Report
             </Button>
@@ -187,7 +187,40 @@ export function ClippingProcessor() {
       }
       // We don't show a toast for the main success case, as the results appear on screen.
     }
-  }, [state.message, state.data, state.errors, toast]);
+  }, [state.message, state.errors, state.data, toast]);
+  
+   React.useEffect(() => {
+    if (!isCameraOpen) return;
+
+    let stream: MediaStream;
+
+    const getCameraPermission = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        setHasCameraPermission(true);
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions in your browser settings to use this app.',
+        });
+      }
+    };
+
+    getCameraPermission();
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [isCameraOpen, toast]);
 
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -218,23 +251,8 @@ export function ClippingProcessor() {
     setSelectedFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
   };
   
-  const handleOpenCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      setHasCameraPermission(true);
-      setIsCameraOpen(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      setHasCameraPermission(false);
-      toast({
-        variant: 'destructive',
-        title: 'Camera Access Denied',
-        description: 'Please enable camera permissions in your browser settings.',
-      });
-    }
+  const handleOpenCamera = () => {
+    setIsCameraOpen(true);
   };
 
   const handleCapture = () => {
@@ -256,10 +274,6 @@ export function ClippingProcessor() {
   };
 
   const handleCloseCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-    }
     setIsCameraOpen(false);
   };
 
@@ -320,7 +334,7 @@ export function ClippingProcessor() {
           )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={handleCloseCamera}>Cancel</Button>
-            <Button onClick={handleCapture} disabled={!hasCameraPermission}>Capture Image</Button>
+            <Button onClick={handleCapture} disabled={hasCameraPermission === false}>Capture Image</Button>
           </div>
         </CardContent>
       </Card>
