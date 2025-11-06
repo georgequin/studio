@@ -5,8 +5,6 @@ import { summarizeNewsClipping } from '@/ai/flows/summarize-news-clipping';
 import { categorizeNewsClipping } from '@/ai/flows/categorize-news-clipping';
 import { THEMATIC_AREA_MAP } from '@/lib/thematic-areas';
 import { extractTextFromImage } from '@/ai/flows/extract-text-from-image';
-import imageType from 'image-type';
-
 
 const inputSchema = z.object({
   text: z.string().optional(),
@@ -43,6 +41,8 @@ export async function processClippingAction(
   try {
     if (files.length > 0) {
         let allExtractedText = '';
+        // Dynamically import image-type
+        const { default: imageType } = await import('image-type');
         for (const file of files) {
              if (file instanceof File && file.size > 0) {
                 const buffer = Buffer.from(await file.arrayBuffer());

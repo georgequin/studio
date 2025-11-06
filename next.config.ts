@@ -30,9 +30,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  experimental: {
-    serverComponentsExternalPackages: ['image-type'],
-  },
 };
 
 export default nextConfig;
