@@ -73,23 +73,20 @@ function SubmitButton() {
 }
 
 const AnalysisResultCard = ({
-    result, 
+    result,
     onSave,
-    onUpdate,
     index,
-    isSavingDisabled,
-}: { 
-    result: AnalysisResult; 
+}: {
+    result: AnalysisResult;
     onSave: () => void;
     onUpdate: (field: keyof AnalysisResult, value: string | number) => void;
     index: number;
-    isSavingDisabled: boolean;
 }) => {
     return (
         <div className="lg:col-span-2 grid gap-8 border-t pt-8">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold">Analysis Result #{index + 1}</h2>
-            <Button onClick={onSave} disabled={isSavingDisabled}>
+            <Button onClick={onSave}>
               <Save className="mr-2" />
               Save Report
             </Button>
@@ -167,28 +164,23 @@ export function ClippingProcessor() {
   }, [state.data]);
 
   React.useEffect(() => {
-    // Only show toast if message exists.
-    // Differentiate between success with no results and an actual error.
-    if (state.message) {
+    if (state.message && state.data !== null) { // Check if data is not null to avoid showing initial toast
       if (state.errors) {
-        // Error case
         toast({
           variant: 'destructive',
           title: 'Processing Failed',
           description: state.message,
         });
       } else if (state.data && state.data.length === 0) {
-        // Success, but no violations found
         toast({
           variant: 'default',
           title: 'Analysis Complete',
           description: state.message,
         });
       }
-      // We don't show a toast for the main success case, as the results appear on screen.
     }
   }, [state.message, state.errors, state.data, toast]);
-  
+
    React.useEffect(() => {
     if (!isCameraOpen) return;
 
@@ -224,6 +216,7 @@ export function ClippingProcessor() {
 
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const formRef = React.useRef<HTMLFormElement>(null);
   const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
   const [sourceId, setSourceId] = React.useState<string>('');
 
@@ -314,6 +307,22 @@ export function ClippingProcessor() {
     }
   };
 
+  const handleFormAction = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); // Prevent default form submission
+    if (!sourceId) {
+      toast({
+        variant: 'destructive',
+        title: 'Source Required',
+        description: 'Please select a news source before extracting stories.',
+      });
+      return;
+    }
+    // Manually create FormData and call the action
+    const formData = new FormData(event.currentTarget);
+    formAction(formData);
+  };
+
+
   if (isCameraOpen) {
     return (
       <Card>
@@ -352,7 +361,7 @@ export function ClippingProcessor() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={formAction} className="grid gap-6">
+          <form ref={formRef} onSubmit={handleFormAction} className="grid gap-6">
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="source-select">Source</Label>
@@ -457,7 +466,6 @@ export function ClippingProcessor() {
           result={result}
           onSave={() => handleSaveReport(result)}
           onUpdate={(field, value) => handleResultChange(index, field, value as string | number)}
-          isSavingDisabled={!sourceId}
         />
       ))}
     </div>
