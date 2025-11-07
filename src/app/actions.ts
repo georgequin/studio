@@ -6,8 +6,8 @@ import { categorizeNewsClipping } from '@/ai/flows/categorize-news-clipping';
 import { THEMATIC_AREA_MAP } from '@/lib/thematic-areas';
 import { extractTextFromImage } from '@/ai/flows/extract-text-from-image';
 import { detectDuplicateIncident } from '@/ai/flows/detect-duplicate-incident';
-import { getDocs, collection, query, orderBy, limit, getFirestore } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase';
+import { getDocs, collection, query, orderBy, limit } from 'firebase/firestore';
+import { getSdks } from '@/firebase/server';
 import type { Report } from '@/lib/types';
 
 
@@ -30,7 +30,7 @@ export type AnalysisResult = {
 
 // Helper function to fetch recent reports
 async function getRecentReports() {
-  const { firestore } = initializeFirebase();
+  const { firestore } = getSdks();
   const reportsRef = collection(firestore, 'reports');
   const q = query(reportsRef, orderBy('uploadDate', 'desc'), limit(25)); // Look at last 25 reports
   const querySnapshot = await getDocs(q);

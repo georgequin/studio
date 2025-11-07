@@ -25,14 +25,14 @@ export function initializeFirebase() {
       firebaseApp = initializeApp(firebaseConfig);
     }
 
-    return getSdks(firebaseApp);
+    return getClientSdks(firebaseApp);
   }
 
   // If already initialized, return the SDKs with the already initialized App
-  return getSdks(getApp());
+  return getClientSdks(getApp());
 }
 
-export function getSdks(firebaseApp: FirebaseApp) {
+export function getClientSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
