@@ -42,8 +42,8 @@ export function DashboardContent() {
   const isLoading = reportsLoading || sourcesLoading;
 
   return (
-    <>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+    <div className="grid gap-8 p-4 md:p-6 lg:p-8">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle>Total Clippings</CardTitle>
@@ -108,6 +108,6 @@ export function DashboardContent() {
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   );
 }

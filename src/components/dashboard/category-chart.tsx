@@ -8,25 +8,34 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import type { Report } from '@/lib/types';
+import { CATEGORY_COLORS } from '@/lib/thematic-areas';
 
 export function CategoryChart({ data }: { data: Report[] }) {
   const chartData = React.useMemo(() => {
     const categoryCounts = data.reduce((acc, clipping) => {
-      acc[clipping.category] = (acc[clipping.category] || 0) + 1;
+      const category = clipping.category || 'Uncategorized';
+      acc[category] = (acc[category] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
     return Object.entries(categoryCounts).map(([category, count]) => ({
       category,
       count,
+      fill: CATEGORY_COLORS[category] || 'hsl(var(--muted))',
     }));
   }, [data]);
 
   const chartConfig = {
     count: {
       label: 'Count',
-      color: 'hsl(var(--primary))',
     },
+    ...chartData.reduce((acc, item) => {
+      acc[item.category] = {
+        label: item.category,
+        color: item.fill,
+      };
+      return acc;
+    }, {} as any)
   };
 
   return (
@@ -36,7 +45,7 @@ export function CategoryChart({ data }: { data: Report[] }) {
           accessibilityLayer
           data={chartData}
           layout="vertical"
-          margin={{ left: 10, right: 10 }}
+          margin={{ left: 10, right: 10, top: 10, bottom: 10 }}
         >
           <YAxis
             dataKey="category"
@@ -55,10 +64,13 @@ export function CategoryChart({ data }: { data: Report[] }) {
           />
           <Bar
             dataKey="count"
-            fill="var(--color-count)"
             radius={5}
             background={{ fill: 'hsl(var(--muted))', radius: 5 }}
-          />
+          >
+            {chartData.map((entry) => (
+                <Bar key={entry.category} dataKey="count" fill={entry.fill} />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </ChartContainer>

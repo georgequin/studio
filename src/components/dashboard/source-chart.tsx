@@ -1,12 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { Label, Pie, PieChart } from 'recharts';
+import { Label, Pie, PieChart, Cell } from 'recharts';
 
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
 } from '@/components/ui/chart';
 import type { Report, Source } from '@/lib/types';
 
@@ -41,7 +43,7 @@ export function SourceChart({ reports, sources }: { reports: Report[], sources: 
   return (
     <ChartContainer
       config={chartConfig}
-      className="mx-auto aspect-square max-h-[300px]"
+      className="mx-auto aspect-square max-h-[350px]"
     >
       <PieChart>
         <ChartTooltip
@@ -55,6 +57,9 @@ export function SourceChart({ reports, sources }: { reports: Report[], sources: 
           innerRadius="60%"
           strokeWidth={5}
         >
+          {chartData.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={entry.fill} />
+          ))}
           <Label
             content={({ viewBox }) => {
               if (viewBox && 'cx' in viewBox && 'cy' in viewBox) {
@@ -85,10 +90,8 @@ export function SourceChart({ reports, sources }: { reports: Report[], sources: 
             }}
           />
         </Pie>
+        <ChartLegend content={<ChartLegendContent nameKey="source" />} />
       </PieChart>
     </ChartContainer>
   );
 }
-
-// Re-export from recharts because it's not in shadcn/ui
-import { ResponsiveContainer } from 'recharts';
