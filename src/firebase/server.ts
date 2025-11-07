@@ -1,13 +1,16 @@
+'use server';
+
 import { initializeApp, getApps, getApp, FirebaseOptions } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { credential } from 'firebase-admin';
+import { firebaseConfig as clientFirebaseConfig } from '@/firebase/config';
 
 const firebaseConfig: FirebaseOptions = {
     credential: credential.applicationDefault(),
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    projectId: clientFirebaseConfig.projectId,
 };
 
-export function getSdks() {
+export async function getSdks() {
     const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
     return {
         firestore: getFirestore(app),
