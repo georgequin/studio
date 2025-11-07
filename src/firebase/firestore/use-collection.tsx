@@ -58,21 +58,23 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Start as true
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
     if (!targetRefOrQuery) {
+      // If the query isn't ready, we are still technically "loading"
+      // or waiting for it. Don't set isLoading to false here.
+      // Setting data to null is appropriate.
       setData(null);
-      setIsLoading(false);
-      setError(null);
+      setIsLoading(true); 
       return;
     }
 
+    // When we have a query, ensure loading is true.
     setIsLoading(true);
     setError(null);
 
-    // Directly use targetRefOrQuery as it's assumed to be the final query
     const unsubscribe = onSnapshot(
       targetRefOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
@@ -82,10 +84,9 @@ export function useCollection<T = any>(
         }
         setData(results);
         setError(null);
-        setIsLoading(false);
+        setIsLoading(false); // Finished loading successfully
       },
       (error: FirestoreError) => {
-        // This logic extracts the path from either a ref or a query
         const path: string =
           targetRefOrQuery.type === 'collection'
             ? (targetRefOrQuery as CollectionReference).path
@@ -98,15 +99,14 @@ export function useCollection<T = any>(
 
         setError(contextualError)
         setData(null)
-        setIsLoading(false)
+        setIsLoading(false) // Finished loading with an error
 
-        // trigger global error propagation
         errorEmitter.emit('permission-error', contextualError);
       }
     );
 
     return () => unsubscribe();
-  }, [targetRefOrQuery]); // Re-run if the target query/reference changes.
+  }, [targetRefOrQuery]);
 
   return { data, isLoading, error };
 }
