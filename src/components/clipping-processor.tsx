@@ -44,7 +44,7 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useUser } from '@/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
@@ -197,7 +197,7 @@ export function ClippingProcessor() {
 
   const firestore = useFirestore();
   const { user } = useUser();
-  const sourcesCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'sources') : null), [firestore]);
+  const sourcesCollection = React.useMemo(() => (firestore ? collection(firestore, 'sources') : null), [firestore]);
   const { data: sources, isLoading: sourcesLoading } = useCollection(sourcesCollection);
   
   React.useEffect(() => {

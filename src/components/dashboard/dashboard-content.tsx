@@ -11,7 +11,7 @@ import {
 import { CategoryChart } from '@/components/dashboard/category-chart';
 import { SourceChart } from '@/components/dashboard/source-chart';
 import { FrequencyChart } from '@/components/dashboard/frequency-chart';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import type { Report } from '@/lib/types';
 import type { Source } from '@/lib/types';
@@ -20,14 +20,14 @@ import { Skeleton } from '../ui/skeleton';
 export function DashboardContent() {
   const firestore = useFirestore();
 
-  const reportsCollection = useMemoFirebase(() => {
+  const reportsCollection = React.useMemo(() => {
     if (!firestore) return null;
     return collection(firestore, 'reports');
   }, [firestore]);
   const { data: reports, isLoading: reportsLoading } =
     useCollection<Report>(reportsCollection);
 
-  const sourcesCollection = useMemoFirebase(() => {
+  const sourcesCollection = React.useMemo(() => {
     if (!firestore) return null;
     return collection(firestore, 'sources');
   }, [firestore]);

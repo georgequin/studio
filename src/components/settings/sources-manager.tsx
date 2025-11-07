@@ -13,7 +13,6 @@ import {
 import {
   useFirestore,
   useCollection,
-  useMemoFirebase,
   setDocumentNonBlocking,
   deleteDocumentNonBlocking,
   errorEmitter,
@@ -72,7 +71,7 @@ export function SourcesManager() {
   const { toast } = useToast();
   const [isSeeding, setIsSeeding] = React.useState(false);
 
-  const sourcesCollectionRef = useMemoFirebase(
+  const sourcesCollectionRef = React.useMemo(
     () => (firestore ? collection(firestore, 'sources') : null),
     [firestore]
   );
@@ -101,7 +100,7 @@ export function SourcesManager() {
     // This effect will run once on component mount to seed the initial data
     // if the sources collection is empty.
     const seedInitialData = () => {
-      if (firestore && sources && sources.length === 0 && !isSeeding) {
+      if (firestore && !isLoading && sources && sources.length === 0 && !isSeeding) {
         setIsSeeding(true);
         const batch = writeBatch(firestore);
         initialSources.forEach((source) => {
@@ -134,9 +133,7 @@ export function SourcesManager() {
       }
     };
 
-    if(!isLoading){
-        seedInitialData();
-    }
+    seedInitialData();
   }, [firestore, sources, isLoading, toast, isSeeding]);
 
 

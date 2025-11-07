@@ -155,27 +155,6 @@ export const useFirebaseApp = (): FirebaseApp => {
 };
 
 /**
- * A hook to safely memoize Firebase queries or references.
- * It ensures that the factory function is only called when all dependencies are defined.
- * If any dependency is `null` or `undefined`, it returns `null`, preventing
- * Firebase SDK functions from being called with invalid arguments.
- *
- * @param factory A function that creates a Firebase query or reference.
- * @param deps The dependency array for the `useMemo` hook.
- * @returns The memoized Firebase object, or `null` if dependencies are not ready.
- */
-export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | null {
-  return useMemo(() => {
-    // If any dependency is null or undefined, don't run the factory.
-    if (deps.some(dep => dep === null || dep === undefined)) {
-      return null;
-    }
-    return factory();
-  }, deps);
-}
-
-
-/**
  * Hook specifically for accessing the authenticated user's state.
  * This provides the User object, loading status, and any auth errors.
  * @returns {UserHookResult} Object with user, isUserLoading, userError.

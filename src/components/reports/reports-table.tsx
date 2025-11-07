@@ -51,7 +51,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Report, Source } from '@/lib/types';
 import { CATEGORY_COLORS } from '@/lib/thematic-areas';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 
@@ -245,13 +245,13 @@ export function ReportsTable() {
   const firestore = useFirestore();
   const searchParams = useSearchParams();
 
-  const reportsCollection = useMemoFirebase(() => {
+  const reportsCollection = React.useMemo(() => {
     if (!firestore) return null;
     return collection(firestore, 'reports');
   }, [firestore]);
   const { data: reports, isLoading: reportsLoading } = useCollection<Report>(reportsCollection);
 
-  const sourcesCollection = useMemoFirebase(() => {
+  const sourcesCollection = React.useMemo(() => {
     if(!firestore) return null;
     return collection(firestore, 'sources');
   }, [firestore]);
