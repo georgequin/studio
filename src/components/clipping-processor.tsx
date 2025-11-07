@@ -197,7 +197,7 @@ export function ClippingProcessor() {
 
   const firestore = useFirestore();
   const { user } = useUser();
-  const sourcesCollection = React.useMemo(() => (firestore ? collection(firestore, 'sources') : null), [firestore]);
+  const sourcesCollection = firestore ? collection(firestore, 'sources') : null;
   const { data: sources, isLoading: sourcesLoading } = useCollection(sourcesCollection);
   
   React.useEffect(() => {

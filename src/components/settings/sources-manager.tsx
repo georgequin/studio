@@ -71,10 +71,7 @@ export function SourcesManager() {
   const { toast } = useToast();
   const [isSeeding, setIsSeeding] = React.useState(false);
 
-  const sourcesCollectionRef = React.useMemo(
-    () => (firestore ? collection(firestore, 'sources') : null),
-    [firestore]
-  );
+  const sourcesCollectionRef = firestore ? collection(firestore, 'sources') : null;
 
   const { data: sources, isLoading } = useCollection(sourcesCollectionRef);
 
