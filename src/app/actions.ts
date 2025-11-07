@@ -30,8 +30,6 @@ export async function processClippingAction(
     sourceId: formData.get('sourceId'),
   });
   
-  const files = formData.getAll('files') as File[];
-  
   if (!validatedFields.success) {
     return {
       message: 'Validation failed.',
@@ -40,6 +38,7 @@ export async function processClippingAction(
     };
   }
 
+  const files = formData.getAll('files') as File[];
   let textToProcess = validatedFields.data.text || '';
 
   try {
@@ -77,7 +76,6 @@ export async function processClippingAction(
       throw new Error('AI summarization failed to return a result.');
     }
 
-    // If no violation is found, we can stop here.
     if (summaryResult.articles.length === 0) {
         return {
             message: 'Analysis complete. No human rights violations were found in the provided text.',
@@ -100,7 +98,6 @@ export async function processClippingAction(
             });
         }
     }
-
 
     return {
       message: 'Analysis complete.',
