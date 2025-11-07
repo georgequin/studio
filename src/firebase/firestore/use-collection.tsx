@@ -63,14 +63,14 @@ export function useCollection<T = any>(
 
   useEffect(() => {
     if (!targetRefOrQuery) {
-      // If the query isn't ready, we are still technically "loading"
-      // or waiting for it. The isLoading state is already true from the
-      // initial state, so we just wait.
+      // If the query isn't ready, we are not actively loading.
+      // Set loading to false and clear data.
+      setIsLoading(false);
       setData(null);
       return;
     }
 
-    // When we have a valid query, we can reset the state before listening.
+    // When we have a valid query, we can reset the state and start listening.
     setIsLoading(true);
     setError(null);
     setData(null);
