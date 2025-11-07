@@ -14,6 +14,8 @@ import {
   Save,
   Newspaper,
   Camera,
+  Sparkles,
+  Text,
 } from 'lucide-react';
 import * as React from 'react';
 
@@ -60,14 +62,17 @@ const initialState: {
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" disabled={pending} size="lg">
       {pending ? (
         <>
           <LoaderCircle className="animate-spin" />
-          Processing...
+          Analyzing...
         </>
       ) : (
-        'Extract Stories'
+        <>
+        <Sparkles className="mr-2" />
+        Extract Stories
+        </>
       )}
     </Button>
   );
@@ -78,17 +83,32 @@ const AnalysisResultCard = ({
     onSave,
     onUpdate,
     index,
+    sourceId,
 }: {
     result: AnalysisResult;
-    onSave: () => void;
+    onSave: (result: AnalysisResult, sourceId: string) => void;
     onUpdate: (field: keyof AnalysisResult, value: string) => void;
     index: number;
+    sourceId: string;
 }) => {
+    const { toast } = useToast();
+    const handleSaveClick = () => {
+        if (!sourceId) {
+            toast({
+                variant: 'destructive',
+                title: 'Source Required',
+                description: 'Please select a news source before saving.',
+            });
+            return;
+        }
+        onSave(result, sourceId);
+    }
+
     return (
         <div className="lg:col-span-2 grid gap-8 border-t pt-8">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold">Analysis Result #{index + 1}</h2>
-            <Button onClick={onSave}>
+            <Button onClick={handleSaveClick}>
               <Save className="mr-2" />
               Save Report
             </Button>
@@ -99,7 +119,7 @@ const AnalysisResultCard = ({
                 <CardTitle className="text-base font-medium flex items-center gap-4"><Newspaper className="text-accent" /> Extracted Article</CardTitle>
               </CardHeader>
               <CardContent>
-                <Textarea value={result.extractedArticle} onChange={(e) => onUpdate('extractedArticle', e.target.value)} className="min-h-[150px]" />
+                <Textarea value={result.extractedArticle} onChange={(e) => onUpdate('extractedArticle', e.target.value)} className="min-h-[150px] text-base" />
               </CardContent>
             </Card>
             <Card>
@@ -107,7 +127,7 @@ const AnalysisResultCard = ({
                 <CardTitle className="text-base font-medium flex items-center gap-4"><Lightbulb className="text-accent" /> AI Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                <Textarea value={result.summary} onChange={(e) => onUpdate('summary', e.target.value)} className="min-h-[120px]" />
+                <Textarea value={result.summary} onChange={(e) => onUpdate('summary', e.target.value)} className="min-h-[120px] text-base" />
               </CardContent>
             </Card>
             <div className="grid gap-4 md:grid-cols-2">
@@ -170,13 +190,10 @@ export function ClippingProcessor() {
   const { data: sources, isLoading: sourcesLoading } = useCollection(sourcesCollection);
   
   React.useEffect(() => {
-    // This effect runs when the server action completes.
-    // It is critical to check if `state` is null to prevent crashing on initial render.
     if (!state) {
       return;
     }
   
-    // Handle validation errors or other non-data messages from the server action.
     if (state.message && !state.data) {
       toast({
         variant: state.errors ? 'destructive' : 'default',
@@ -185,7 +202,6 @@ export function ClippingProcessor() {
       });
     }
   
-    // When the AI analysis is successful and returns data.
     if (state.data) {
       setEditableResults(state.data);
       if (state.message) {
@@ -201,28 +217,20 @@ export function ClippingProcessor() {
     if (!editableResults) return;
 
     const newResults = [...editableResults];
-    
-    // Create a new object for the specific result being updated
     const updatedResult = { ...newResults[index] };
 
-    if (field === 'confidence') {
-        updatedResult[field] = parseFloat(value);
-    } else {
-        // @ts-ignore
-        updatedResult[field] = value;
-    }
+    // @ts-ignore - This is a safe conversion for the controlled components
+    updatedResult[field] = field === 'confidence' ? parseFloat(value) : value;
 
     if (field === 'category') {
         updatedResult['thematicArea'] = THEMATIC_AREA_MAP[value as keyof typeof THEMATIC_AREA_MAP] || 'Unassigned';
     }
     
-    // Replace the old result object with the updated one
     newResults[index] = updatedResult;
-    
     setEditableResults(newResults);
-};
+  };
 
-  const handleSaveReport = (resultToSave: AnalysisResult) => {
+  const handleSaveReport = (resultToSave: AnalysisResult, currentSourceId: string) => {
     if (!firestore || !user) {
         toast({
             variant: 'destructive',
@@ -231,24 +239,16 @@ export function ClippingProcessor() {
         });
         return;
     }
-    if (!sourceId) {
-        toast({
-            variant: 'destructive',
-            title: 'Source Required',
-            description: 'Please select a news source before saving.',
-        });
-        return;
-    }
 
     const newReportRef = doc(collection(firestore, 'reports'));
     const reportData = {
         ...resultToSave,
         id: newReportRef.id,
-        sourceId: sourceId,
+        sourceId: currentSourceId,
         userId: user.uid,
         publicationDate: new Date().toISOString(),
         uploadDate: serverTimestamp(),
-        content: resultToSave.extractedArticle, // Ensure content is the full article
+        content: resultToSave.extractedArticle,
     };
 
     setDocumentNonBlocking(newReportRef, reportData, {});
@@ -258,9 +258,9 @@ export function ClippingProcessor() {
         description: 'The new report has been saved to the database.',
     });
 
-    // Optionally, remove the saved report from the view
     setEditableResults(prev => prev ? prev.filter(r => r !== resultToSave) : null);
   };
+
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -305,7 +305,6 @@ export function ClippingProcessor() {
     }
   };
 
-  // Effect for managing camera stream
   React.useEffect(() => {
     if (showCamera) {
       const getCameraPermission = async () => {
@@ -329,7 +328,6 @@ export function ClippingProcessor() {
       getCameraPermission();
     }
   
-    // Cleanup function
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
@@ -374,12 +372,12 @@ export function ClippingProcessor() {
             <div className="lg:col-span-1 flex flex-col gap-8">
             <Card>
                 <CardHeader>
-                <CardTitle>Upload or Paste Clipping</CardTitle>
-                <CardDescription>
-                    You can upload an image file, use your camera, or paste text directly.
-                </CardDescription>
+                    <CardTitle>Input Source</CardTitle>
+                    <CardDescription>
+                        Provide content for the AI to analyze.
+                    </CardDescription>
                 </CardHeader>
-                <CardContent className="grid gap-4">
+                <CardContent className="grid gap-6">
                     <div className="grid gap-2">
                         <Label htmlFor="source">News Source</Label>
                         <Select name="sourceId" value={sourceId} onValueChange={setSourceId} required>
@@ -397,55 +395,52 @@ export function ClippingProcessor() {
                         </SelectContent>
                         </Select>
                     </div>
-                <div className="grid gap-2">
-                    <Label>Upload Files</Label>
-                    <div className="flex items-center gap-2">
-                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                        <UploadCloud className="mr-2" /> Browse Files
-                    </Button>
-                    <Button type="button" variant="outline" onClick={handleOpenCamera}>
-                        <Camera className="mr-2" /> Use Camera
-                    </Button>
-                    </div>
-                    <Input
-                    ref={fileInputRef}
-                    type="file"
-                    name="files"
-                    className="hidden"
-                    onChange={handleFileChange}
-                    multiple
-                    accept="image/*"
-                    />
-                </div>
 
-                {files.length > 0 && (
                     <div className="grid gap-2">
-                    <Label>Selected Files</Label>
-                    <div className="flex flex-col gap-2">
-                        {files.map((file, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
-                            <div className="flex items-center gap-2">
-                            <FileIcon className="text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground truncate">{file.name}</span>
-                            </div>
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveFile(index)}>
-                            <X className="w-4 h-4" />
+                        <Label>From Image</Label>
+                        <div className="flex items-center gap-2">
+                            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                <UploadCloud className="mr-2" /> Upload
+                            </Button>
+                            <Button type="button" variant="outline" onClick={handleOpenCamera}>
+                                <Camera className="mr-2" /> Camera
                             </Button>
                         </div>
-                        ))}
+                        <Input
+                            ref={fileInputRef}
+                            type="file"
+                            name="files"
+                            className="hidden"
+                            onChange={handleFileChange}
+                            multiple
+                            accept="image/*"
+                        />
+                         {files.length > 0 && (
+                            <div className="grid gap-2 pt-2">
+                                {files.map((file, index) => (
+                                <div key={index} className="flex items-center justify-between p-2 pr-1 bg-muted/50 rounded-md text-sm">
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                    <FileIcon className="text-muted-foreground flex-shrink-0" />
+                                    <span className="text-muted-foreground truncate">{file.name}</span>
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => handleRemoveFile(index)}>
+                                    <X className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                                ))}
+                            </div>
+                         )}
                     </div>
-                    </div>
-                )}
                 
-                <div className="grid gap-2">
-                    <Label htmlFor="text">Or Paste Text</Label>
-                    <Textarea
-                    id="text"
-                    name="text"
-                    placeholder="Paste the article text here..."
-                    className="min-h-[150px]"
-                    />
-                </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="text">From Text</Label>
+                        <Textarea
+                            id="text"
+                            name="text"
+                            placeholder="Or paste the article text here..."
+                            className="min-h-[150px] text-base"
+                        />
+                    </div>
                 </CardContent>
             </Card>
 
@@ -453,7 +448,7 @@ export function ClippingProcessor() {
                 <Lightbulb className="h-4 w-4" />
                 <AlertTitle>How it Works</AlertTitle>
                 <AlertDescription>
-                The AI will extract text from uploaded images (if any), combine it with pasted text, and then identify and summarize all articles related to human rights violations.
+                The AI will extract text, then identify and summarize all articles related to human rights violations from your provided content.
                 </AlertDescription>
             </Alert>
             </div>
@@ -461,20 +456,21 @@ export function ClippingProcessor() {
             <div className="lg:col-span-2">
             <Card className="min-h-[400px]">
                 <CardHeader>
-                <CardTitle>Ready to Process</CardTitle>
+                <CardTitle>Ready to Analyze</CardTitle>
                 <CardDescription>
-                    Your files and text will be analyzed. Click the button below to start.
+                    Your content is ready. Let our AI find the stories.
                 </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-col items-center justify-center h-full gap-4 text-center">
-                <Image
-                    src={clippingImage?.imageUrl || 'https://placehold.co/600x400'}
-                    width={600}
-                    height={400}
-                    alt={clippingImage?.description || 'Placeholder'}
-                    className="max-w-xs rounded-lg"
-                    data-ai-hint={clippingImage?.imageHint}
-                />
+                <CardContent className="flex flex-col items-center justify-center h-full gap-6 text-center p-8">
+                <div className="relative w-48 h-48">
+                    <div className="absolute inset-0 bg-primary/10 rounded-full animate-pulse"></div>
+                    <div className="absolute inset-2 bg-primary/20 rounded-full animate-pulse delay-200"></div>
+                     <Sparkles className="w-24 h-24 text-primary absolute inset-1/2 -translate-x-1/2 -translate-y-1/2"/>
+                </div>
+                <h3 className="text-xl font-semibold text-foreground">AI Story Extractor is standing by.</h3>
+                <p className="text-muted-foreground max-w-sm">
+                    Click the button below to start the analysis process. You'll be able to review and save each extracted story.
+                </p>
                 <SubmitButton />
                 </CardContent>
             </Card>
@@ -489,8 +485,9 @@ export function ClippingProcessor() {
               key={index}
               result={result}
               index={index}
-              onUpdate={(field, value) => handleUpdateResult(index, field, value as string)}
-              onSave={() => handleSaveReport(result)}
+              onUpdate={handleUpdateResult}
+              onSave={handleSaveReport}
+              sourceId={sourceId}
           />
       ))}
 

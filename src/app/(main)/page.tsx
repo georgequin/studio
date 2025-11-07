@@ -6,7 +6,7 @@ import { FirebaseClientProvider } from '@/firebase';
 export default function ClippingProcessorPage() {
   return (
     <div className="w-full">
-      <AppHeader title="Process Clipping" />
+      <AppHeader title="AI Story Extractor" />
       <Suspense fallback={<div>Loading...</div>}>
         <FirebaseClientProvider>
           <ClippingProcessor />

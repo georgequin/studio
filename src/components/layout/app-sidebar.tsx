@@ -7,7 +7,7 @@ import {
   LayoutDashboard,
   Newspaper,
   Settings,
-  Upload,
+  Sparkles,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -22,7 +22,7 @@ import { Button } from '../ui/button';
 import { Separator } from '../ui/separator';
 
 const navItems = [
-  { href: '/', label: 'Process Clipping', icon: Upload },
+  { href: '/', label: 'Story Extractor', icon: Sparkles },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/reports', label: 'Reports', icon: FileText },
   { href: '/settings', label: 'Settings', icon: Settings },
