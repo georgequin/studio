@@ -58,19 +58,19 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true); 
+  // Set initial loading state based on whether we have a query to run immediately.
+  const [isLoading, setIsLoading] = useState<boolean>(!!targetRefOrQuery);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
+    // If the query isn't ready (e.g., waiting for firestore instance), do nothing.
     if (!targetRefOrQuery) {
-      // If the query isn't ready, we are not actively loading.
-      // Set loading to false and clear data.
-      setIsLoading(false);
-      setData(null);
+      // If we were previously loading but now have no query, stop loading.
+      if (isLoading) setIsLoading(false);
       return;
     }
 
-    // When we have a valid query, we can reset the state and start listening.
+    // A valid query is present, start loading and reset previous state.
     setIsLoading(true);
     setError(null);
     setData(null);
@@ -105,8 +105,9 @@ export function useCollection<T = any>(
       }
     );
 
+    // Cleanup subscription on component unmount or when the query changes.
     return () => unsubscribe();
-  }, [targetRefOrQuery]);
+  }, [targetRefOrQuery]); // Rerun effect if the query object itself changes.
 
   return { data, isLoading, error };
 }
