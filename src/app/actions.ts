@@ -34,7 +34,7 @@ export async function processClippingAction(
   
   if (!validatedFields.success) {
     return {
-      message: 'Invalid input.',
+      message: 'Validation failed.',
       errors: validatedFields.error.flatten().fieldErrors,
       data: null,
     };
@@ -112,7 +112,7 @@ export async function processClippingAction(
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred during AI processing.';
     return {
       message: errorMessage,
-      errors: null,
+      errors: { _form: [errorMessage] },
       data: null,
     };
   }
