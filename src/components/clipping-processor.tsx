@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import Image from 'next/image';
 import {
@@ -16,6 +16,8 @@ import {
   Camera,
   Sparkles,
   Text,
+  AlertTriangle,
+  Link,
 } from 'lucide-react';
 import * as React from 'react';
 
@@ -87,7 +89,7 @@ const AnalysisResultCard = ({
 }: {
     result: AnalysisResult;
     onSave: (result: AnalysisResult, sourceId: string) => void;
-    onUpdate: (field: keyof AnalysisResult, value: string) => void;
+    onUpdate: (index: number, field: keyof AnalysisResult, value: string) => void;
     index: number;
     sourceId: string;
 }) => {
@@ -106,9 +108,22 @@ const AnalysisResultCard = ({
 
     return (
         <div className="lg:col-span-2 grid gap-8 border-t pt-8">
+            {result.isDuplicate && (
+                <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Potential Duplicate Detected</AlertTitle>
+                    <AlertDescription>
+                        {result.reasoning}
+                        <Button variant="link" asChild className="p-0 h-auto ml-2">
+                           <a href={`/reports?view=${result.duplicateReportId}`} target="_blank">View Original Report</a>
+                        </Button>
+                    </AlertDescription>
+                </Alert>
+            )}
+
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold">Analysis Result #{index + 1}</h2>
-            <Button onClick={handleSaveClick}>
+             <Button onClick={handleSaveClick} disabled={result.isDuplicate}>
               <Save className="mr-2" />
               Save Report
             </Button>
@@ -119,7 +134,7 @@ const AnalysisResultCard = ({
                 <CardTitle className="text-base font-medium flex items-center gap-4"><Newspaper className="text-accent" /> Extracted Article</CardTitle>
               </CardHeader>
               <CardContent>
-                <Textarea value={result.extractedArticle} onChange={(e) => onUpdate('extractedArticle', e.target.value)} className="min-h-[150px] text-base" />
+                <Textarea value={result.extractedArticle} onChange={(e) => onUpdate(index, 'extractedArticle', e.target.value)} className="min-h-[150px] text-base" />
               </CardContent>
             </Card>
             <Card>
@@ -127,7 +142,7 @@ const AnalysisResultCard = ({
                 <CardTitle className="text-base font-medium flex items-center gap-4"><Lightbulb className="text-accent" /> AI Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                <Textarea value={result.summary} onChange={(e) => onUpdate('summary', e.target.value)} className="min-h-[120px] text-base" />
+                <Textarea value={result.summary} onChange={(e) => onUpdate(index, 'summary', e.target.value)} className="min-h-[120px] text-base" />
               </CardContent>
             </Card>
             <div className="grid gap-4 md:grid-cols-2">
@@ -136,7 +151,7 @@ const AnalysisResultCard = ({
                   <CardTitle className="text-base font-medium flex items-center gap-4"><Tag className="text-accent" /> Category</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <Input value={result.category} onChange={(e) => onUpdate('category', e.target.value)} />
+                  <Input value={result.category} onChange={(e) => onUpdate(index, 'category', e.target.value)} />
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">
                       Confidence:
@@ -156,7 +171,7 @@ const AnalysisResultCard = ({
                   <CardTitle className="text-base font-medium flex items-center gap-4"><FolderKanban className="text-accent" /> Assigned Thematic Area</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <Input value={result.thematicArea} onChange={(e) => onUpdate('thematicArea', e.target.value)} />
+                    <Input value={result.thematicArea} onChange={(e) => onUpdate(index, 'thematicArea', e.target.value)} />
                 </CardContent>
               </Card>
             </div>
@@ -167,7 +182,6 @@ const AnalysisResultCard = ({
 
 export function ClippingProcessor() {
   const [state, formAction] = useActionState(processClippingAction, initialState);
-
   const [editableResults, setEditableResults] = React.useState<AnalysisResult[] | null>(null);
   const { toast } = useToast();
 
@@ -191,22 +205,28 @@ export function ClippingProcessor() {
       return;
     }
   
-    if (state.message && !state.data) {
-      toast({
-        variant: state.errors ? 'destructive' : 'default',
-        title: state.errors ? 'Error' : 'Notification',
-        description: state.message,
-      });
+    if (state.message) {
+      if (state.errors) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: state.message,
+        });
+      } else if (state.data) {
+         toast({
+          title: 'Analysis Complete',
+          description: state.message,
+        });
+      } else {
+        toast({
+          title: 'Notification',
+          description: state.message,
+        });
+      }
     }
   
     if (state.data) {
       setEditableResults(state.data);
-      if (state.message) {
-        toast({
-          title: 'Analysis Complete',
-          description: state.message,
-        });
-      }
     }
   }, [state, toast]);
 
@@ -283,9 +303,9 @@ export function ClippingProcessor() {
 
   const handleCloseCamera = () => {
       setShowCamera(false);
-      const stream = videoRef.current?.srcObject as MediaStream;
-      if (stream) {
-          stream.getTracks().forEach(track => track.stop());
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
       }
       setHasCameraPermission(null);
   };
@@ -333,6 +353,7 @@ export function ClippingProcessor() {
       getCameraPermission();
     }
   
+    // Cleanup function
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;

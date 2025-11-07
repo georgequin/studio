@@ -5,7 +5,11 @@ import { summarizeNewsClipping } from '@/ai/flows/summarize-news-clipping';
 import { categorizeNewsClipping } from '@/ai/flows/categorize-news-clipping';
 import { THEMATIC_AREA_MAP } from '@/lib/thematic-areas';
 import { extractTextFromImage } from '@/ai/flows/extract-text-from-image';
-import imageType from 'image-type';
+import { detectDuplicateIncident } from '@/ai/flows/detect-duplicate-incident';
+import { getDocs, collection, query, orderBy, limit, getFirestore } from 'firebase/firestore';
+import { initializeFirebase } from '@/firebase';
+import type { Report } from '@/lib/types';
+
 
 const inputSchema = z.object({
   text: z.string().optional(),
@@ -19,7 +23,24 @@ export type AnalysisResult = {
   category: string;
   confidence: number;
   thematicArea: string;
+  isDuplicate: boolean;
+  duplicateReportId?: string;
+  reasoning?: string;
 };
+
+// Helper function to fetch recent reports
+async function getRecentReports() {
+  const { firestore } = initializeFirebase();
+  const reportsRef = collection(firestore, 'reports');
+  const q = query(reportsRef, orderBy('uploadDate', 'desc'), limit(25)); // Look at last 25 reports
+  const querySnapshot = await getDocs(q);
+  const reports: Pick<Report, 'id' | 'summary' | 'title'>[] = [];
+  querySnapshot.forEach((doc) => {
+    const data = doc.data() as Report;
+    reports.push({ id: doc.id, summary: data.summary, title: data.title });
+  });
+  return reports;
+}
 
 export async function processClippingAction(
   prevState: any,
@@ -29,7 +50,7 @@ export async function processClippingAction(
     text: formData.get('text'),
     sourceId: formData.get('sourceId'),
   });
-  
+
   if (!validatedFields.success) {
     return {
       message: 'Validation failed.',
@@ -43,32 +64,35 @@ export async function processClippingAction(
 
   try {
     if (files.length > 0) {
-        let allExtractedText = '';
-        for (const file of files) {
-             if (file instanceof File && file.size > 0) {
-                const buffer = Buffer.from(await file.arrayBuffer());
-                const type = await imageType(buffer);
-        
-                if (!type) {
-                    console.warn(`Skipping a file of unknown type: ${file.name}`);
-                    continue;
-                }
-                
-                const photoDataUri = `data:${type.mime};base64,${buffer.toString('base64')}`;
-                
-                const ocrResult = await extractTextFromImage({ photoDataUri });
-                allExtractedText += ocrResult.text + '\n\n';
-             }
+      let allExtractedText = '';
+      for (const file of files) {
+        if (file instanceof File && file.size > 0) {
+          const buffer = Buffer.from(await file.arrayBuffer());
+          const imageType = (await import('image-type')).default;
+          const type = await imageType(buffer);
+
+          if (!type) {
+            console.warn(`Skipping a file of unknown type: ${file.name}`);
+            continue;
+          }
+
+          const photoDataUri = `data:${type.mime};base64,${buffer.toString(
+            'base64'
+          )}`;
+
+          const ocrResult = await extractTextFromImage({ photoDataUri });
+          allExtractedText += ocrResult.text + '\n\n';
         }
-        textToProcess += allExtractedText;
-    } 
-    
+      }
+      textToProcess += allExtractedText;
+    }
+
     if (!textToProcess) {
-        return {
-            message: 'Please provide either text or at least one valid file.',
-            errors: { text: ['Please provide either text or a file.'] },
-            data: null,
-        }
+      return {
+        message: 'Please provide either text or at least one valid file.',
+        errors: { text: ['Please provide either text or a file.'] },
+        data: null,
+      };
     }
 
     const summaryResult = await summarizeNewsClipping({ text: textToProcess });
@@ -77,26 +101,44 @@ export async function processClippingAction(
     }
 
     if (summaryResult.articles.length === 0) {
-        return {
-            message: 'Analysis complete. No human rights violations were found in the provided text.',
-            errors: null,
-            data: [],
-        }
+      return {
+        message:
+          'Analysis complete. No human rights violations were found in the provided text.',
+        errors: null,
+        data: [],
+      };
     }
     
+    // Fetch recent reports for duplicate check
+    const recentReports = await getRecentReports();
+
     const analysisResults: AnalysisResult[] = [];
 
     for (const article of summaryResult.articles) {
-        if (article.containsViolation) {
-            const categoryResult = await categorizeNewsClipping({ text: article.extractedArticle });
-            const thematicArea = THEMATIC_AREA_MAP[categoryResult.category as keyof typeof THEMATIC_AREA_MAP] || 'Unassigned';
-            
-            analysisResults.push({
-                ...article,
-                ...categoryResult,
-                thematicArea,
-            });
-        }
+      if (article.containsViolation) {
+        const categoryResult = await categorizeNewsClipping({
+          text: article.extractedArticle,
+        });
+
+        const duplicateResult = await detectDuplicateIncident({
+          newArticleText: article.extractedArticle,
+          recentReports: recentReports,
+        });
+        
+        const thematicArea =
+          THEMATIC_AREA_MAP[
+            categoryResult.category as keyof typeof THEMATIC_AREA_MAP
+          ] || 'Unassigned';
+
+        analysisResults.push({
+          ...article,
+          ...categoryResult,
+          thematicArea,
+          isDuplicate: duplicateResult.isDuplicate,
+          duplicateReportId: duplicateResult.duplicateReportId,
+          reasoning: duplicateResult.reasoning,
+        });
+      }
     }
 
     return {
@@ -106,7 +148,10 @@ export async function processClippingAction(
     };
   } catch (error) {
     console.error(error);
-    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred during AI processing.';
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : 'An unexpected error occurred during AI processing.';
     return {
       message: errorMessage,
       errors: { _form: [errorMessage] },

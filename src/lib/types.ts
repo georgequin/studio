@@ -11,6 +11,8 @@ export type Report = {
   content: string; // This now holds the full extracted article
   userId: string;
   uploadDate: string;
+  isDuplicate?: boolean;
+  duplicateReportId?: string;
 };
 
 export type Source = {

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   ArrowUpDown,
   ChevronDown,
@@ -49,7 +50,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Report, Source } from '@/lib/types';
 import { CATEGORY_COLORS } from '@/lib/thematic-areas';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 
 const convertToCSV = (data: Report[], sourceMap: Map<string, string>) => {
   const headers = ['ID', 'Publication Date', 'Title', 'Source', 'Category', 'Thematic Area', 'Summary'];
@@ -131,51 +132,61 @@ export const getColumns = (sourceMap: Map<string, string>): ColumnDef<Report>[] 
       const report = row.original;
 
       return (
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Eye className="h-4 w-4" />
-              <span className="sr-only">View Details</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>{report.title}</DialogTitle>
-              <DialogDescription>
-                {sourceMap.get(report.sourceId) || 'Unknown Source'} &middot; {new Date(report.publicationDate).toLocaleDateString()}
-              </DialogDescription>
-            </DialogHeader>
-            <ScrollArea className="max-h-[60vh] pr-6">
-            <div className="grid gap-4 py-4">
-                <div className="space-y-1">
-                    <h4 className="font-semibold">Summary</h4>
-                    <p className="text-sm text-muted-foreground">{report.summary}</p>
-                </div>
-                 <div className="space-y-1">
-                    <h4 className="font-semibold">Full Extracted Article</h4>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{report.content}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                        <h4 className="font-semibold">Category</h4>
-                        <p className="text-sm text-muted-foreground">{report.category}</p>
-                    </div>
-                     <div className="space-y-1">
-                        <h4 className="font-semibold">Thematic Area</h4>
-                        <p className="text-sm text-muted-foreground">{report.thematicArea}</p>
-                    </div>
-                </div>
-            </div>
-            </ScrollArea>
-          </DialogContent>
-        </Dialog>
+        <ReportDetailsDialog report={report} sourceName={sourceMap.get(report.sourceId) || 'Unknown Source'} />
       )
     }
   }
 ];
 
+const ReportDetailsDialog = ({ report, sourceName }: { report: Report; sourceName: string }) => {
+    const [open, setOpen] = React.useState(false);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                    <Eye className="h-4 w-4" />
+                    <span className="sr-only">View Details</span>
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>{report.title}</DialogTitle>
+                    <DialogDescription>
+                        {sourceName} &middot; {new Date(report.publicationDate).toLocaleDateString()}
+                    </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="max-h-[60vh] pr-6">
+                    <div className="grid gap-4 py-4">
+                        <div className="space-y-1">
+                            <h4 className="font-semibold">Summary</h4>
+                            <p className="text-sm text-muted-foreground">{report.summary}</p>
+                        </div>
+                        <div className="space-y-1">
+                            <h4 className="font-semibold">Full Extracted Article</h4>
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{report.content}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <h4 className="font-semibold">Category</h4>
+                                <p className="text-sm text-muted-foreground">{report.category}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <h4 className="font-semibold">Thematic Area</h4>
+                                <p className="text-sm text-muted-foreground">{report.thematicArea}</p>
+                            </div>
+                        </div>
+                    </div>
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+
 export function ReportsTable() {
   const firestore = useFirestore();
+  const searchParams = useSearchParams();
 
   const reportsCollection = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -205,7 +216,7 @@ export function ReportsTable() {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
-
+  
   const table = useReactTable({
     data,
     columns,
@@ -224,6 +235,25 @@ export function ReportsTable() {
       rowSelection,
     },
   });
+
+  React.useEffect(() => {
+    const reportIdToView = searchParams.get('view');
+    if(reportIdToView && table.getCoreRowModel().rows.length > 0) {
+        const row = table.getCoreRowModel().rows.find(r => r.original.id === reportIdToView);
+        if(row){
+            row.toggleSelected(true);
+            const actionCell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
+            // This is a bit of a hack to trigger the dialog
+            // In a real app, you might use a state management library to control the dialog
+            (actionCell?.getContext()?.cell?.column?.id === 'actions') &&
+            setTimeout(() => {
+                 const trigger = document.querySelector(`[data-state="selected"] [aria-haspopup="dialog"]`) as HTMLButtonElement | null;
+                 trigger?.click();
+            }, 100);
+        }
+    }
+  }, [searchParams, table]);
+
 
   return (
     <div className="w-full">
