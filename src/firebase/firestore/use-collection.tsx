@@ -58,15 +58,14 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  // Set initial loading state based on whether we have a query to run immediately.
-  const [isLoading, setIsLoading] = useState<boolean>(!!targetRefOrQuery);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // If the query isn't ready (e.g., waiting for firestore instance), do nothing.
+    // If the query isn't ready (e.g., waiting for firestore instance), set loading to false and do nothing.
     if (!targetRefOrQuery) {
-      // If we were previously loading but now have no query, stop loading.
-      if (isLoading) setIsLoading(false);
+      setIsLoading(false);
+      setData(null);
       return;
     }
 
