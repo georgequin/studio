@@ -58,22 +58,22 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Start as true
+  const [isLoading, setIsLoading] = useState<boolean>(true); 
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
     if (!targetRefOrQuery) {
       // If the query isn't ready, we are still technically "loading"
-      // or waiting for it. Don't set isLoading to false here.
-      // Setting data to null is appropriate.
+      // or waiting for it. The isLoading state is already true from the
+      // initial state, so we just wait.
       setData(null);
-      setIsLoading(true); 
       return;
     }
 
-    // When we have a query, ensure loading is true.
+    // When we have a valid query, we can reset the state before listening.
     setIsLoading(true);
     setError(null);
+    setData(null);
 
     const unsubscribe = onSnapshot(
       targetRefOrQuery,
