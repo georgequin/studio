@@ -33,13 +33,15 @@ body {
     --chart-4: 220 70% 50%;
     --chart-5: 160 60% 45%;
     --radius: 0.5rem;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 210 40% 98%;
-    --sidebar-primary-foreground: 240 5.9% 10%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 240 3.7% 15.9%;
+
+    /* Updated Sidebar Theme */
+    --sidebar-background: 158 43% 15%; /* Darker, richer green */
+    --sidebar-foreground: 158 20% 85%; /* Softer off-white */
+    --sidebar-primary: 0 0% 100%; /* White for primary elements */
+    --sidebar-primary-foreground: 158 43% 15%; /* Dark green on primary */
+    --sidebar-accent: 36 100% 50%; /* Vibrant orange for active/hover */
+    --sidebar-accent-foreground: 240 5.9% 10%; /* Dark text on accent */
+    --sidebar-border: 158 43% 20%; /* Slightly lighter green for borders */
     --sidebar-ring: 36 100% 50%;
   }
   .dark {
@@ -47,7 +49,7 @@ body {
     --foreground: 210 40% 98%;
     --card: 240 10% 3.9%;
     --card-foreground: 210 40% 98%;
-    --popover: 240 10% 3.9%;
+    --popover: 240 10% 3._9%;
     --popover-foreground: 210 40% 98%;
     --primary: 158 43% 35%;
     --primary-foreground: 0 0% 98%;
@@ -67,13 +69,15 @@ body {
     --chart-3: 240 3.7% 15.9%;
     --chart-4: 210 40% 98%;
     --chart-5: 170 50% 50%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 210 40% 98%;
-    --sidebar-primary-foreground: 240 5.9% 10%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 240 3.7% 15.9%;
+
+    /* Updated Dark Sidebar Theme */
+    --sidebar-background: 158 43% 15%; /* Darker, richer green */
+    --sidebar-foreground: 158 20% 85%; /* Softer off-white */
+    --sidebar-primary: 0 0% 100%; /* White for primary elements */
+    --sidebar-primary-foreground: 158 43% 15%; /* Dark green on primary */
+    --sidebar-accent: 36 100% 50%; /* Vibrant orange for active/hover */
+    --sidebar-accent-foreground: 240 5.9% 10%; /* Dark text on accent */
+    --sidebar-border: 158 43% 20%; /* Slightly lighter green for borders */
     --sidebar-ring: 36 100% 50%;
   }
 }
