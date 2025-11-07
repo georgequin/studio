@@ -2,12 +2,7 @@
 
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
-import {
-  ArrowUpDown,
-  ChevronDown,
-  Download,
-  Eye,
-} from 'lucide-react';
+import { ArrowUpDown, ChevronDown, Download, Eye } from 'lucide-react';
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -21,6 +16,10 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -28,12 +27,14 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -50,7 +51,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Report, Source } from '@/lib/types';
 import { CATEGORY_COLORS } from '@/lib/thematic-areas';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 
 const convertToCSV = (data: Report[], sourceMap: Map<string, string>) => {
   const headers = ['ID', 'Publication Date', 'Title', 'Source', 'Category', 'Thematic Area', 'Summary'];
@@ -79,6 +80,45 @@ const downloadCSV = (data: Report[], sourceMap: Map<string, string>) => {
   document.body.removeChild(link);
 };
 
+const downloadPDF = (data: Report[], sourceMap: Map<string, string>) => {
+  const doc = new jsPDF();
+  const tableColumn = ["Date", "Title", "Source", "Category", "Thematic Area"];
+  const tableRows: any[][] = [];
+
+  data.forEach(report => {
+    const reportData = [
+      new Date(report.publicationDate).toLocaleDateString(),
+      report.title || 'N/A',
+      sourceMap.get(report.sourceId) || 'Unknown',
+      report.category || 'N/A',
+      report.thematicArea || 'N/A',
+    ];
+    tableRows.push(reportData);
+  });
+
+  (doc as any).autoTable({
+    head: [tableColumn],
+    body: tableRows,
+    startY: 20,
+  });
+  doc.text("NHRC Reports", 14, 15);
+  doc.save(`nhrc_reports_${new Date().toISOString().split('T')[0]}.pdf`);
+};
+
+const downloadExcel = (data: Report[], sourceMap: Map<string, string>) => {
+  const worksheet = XLSX.utils.json_to_sheet(data.map(report => ({
+    'ID': report.id,
+    'Publication Date': new Date(report.publicationDate).toLocaleDateString(),
+    'Title': report.title,
+    'Source': sourceMap.get(report.sourceId) || 'Unknown',
+    'Category': report.category,
+    'Thematic Area': report.thematicArea,
+    'Summary': report.summary,
+  })));
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Reports");
+  XLSX.writeFile(workbook, `nhrc_reports_${new Date().toISOString().split('T')[0]}.xlsx`);
+};
 
 export const getColumns = (sourceMap: Map<string, string>): ColumnDef<Report>[] => [
   {
@@ -292,10 +332,21 @@ export function ReportsTable() {
               })}
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button variant="default" onClick={() => downloadCSV(data, sourceMap)} disabled={isLoading || data.length === 0}>
-          <Download className="mr-2"/>
-          Export CSV
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="default" disabled={isLoading || data.length === 0}>
+              <Download className="mr-2"/>
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuLabel>Export As</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => downloadCSV(data, sourceMap)}>CSV</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => downloadPDF(data, sourceMap)}>PDF</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => downloadExcel(data, sourceMap)}>Excel</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <div className="rounded-md border bg-card">
         <Table>
