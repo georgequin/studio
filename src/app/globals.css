@@ -34,16 +34,17 @@ body {
     --chart-5: 160 60% 45%;
     --radius: 0.5rem;
 
-    /* Updated Sidebar Theme */
-    --sidebar-background: 158 43% 15%; /* Darker, richer green */
-    --sidebar-foreground: 158 20% 85%; /* Softer off-white */
-    --sidebar-primary: 0 0% 100%; /* White for primary elements */
-    --sidebar-primary-foreground: 158 43% 15%; /* Dark green on primary */
-    --sidebar-accent: 36 100% 50%; /* Vibrant orange for active/hover */
-    --sidebar-accent-foreground: 240 5.9% 10%; /* Dark text on accent */
-    --sidebar-border: 158 43% 20%; /* Slightly lighter green for borders */
-    --sidebar-ring: 36 100% 50%;
+    /* Updated Sidebar Theme for a more professional look */
+    --sidebar-background: 158 43% 20%; /* A slightly lighter, professional dark green */
+    --sidebar-foreground: 0 0% 98%;    /* White/very light gray for high contrast */
+    --sidebar-primary: 0 0% 100%;      /* White for primary elements */
+    --sidebar-primary-foreground: 158 43% 20%; /* Dark green text on white background */
+    --sidebar-accent: 0 0% 100%;       /* White for hover/active state background */
+    --sidebar-accent-foreground: 158 43% 15%; /* Darkest green for text on hover/active */
+    --sidebar-border: 158 43% 25%;    /* Border color that blends in */
+    --sidebar-ring: 0 0% 100%;         /* White ring for focus */
   }
+
   .dark {
     --background: 240 10% 3.9%;
     --foreground: 210 40% 98%;
@@ -70,15 +71,15 @@ body {
     --chart-4: 210 40% 98%;
     --chart-5: 170 50% 50%;
 
-    /* Updated Dark Sidebar Theme */
-    --sidebar-background: 158 43% 15%; /* Darker, richer green */
-    --sidebar-foreground: 158 20% 85%; /* Softer off-white */
-    --sidebar-primary: 0 0% 100%; /* White for primary elements */
-    --sidebar-primary-foreground: 158 43% 15%; /* Dark green on primary */
-    --sidebar-accent: 36 100% 50%; /* Vibrant orange for active/hover */
-    --sidebar-accent-foreground: 240 5.9% 10%; /* Dark text on accent */
-    --sidebar-border: 158 43% 20%; /* Slightly lighter green for borders */
-    --sidebar-ring: 36 100% 50%;
+    /* Updated Dark Sidebar Theme for a more professional look */
+    --sidebar-background: 158 43% 20%; /* A slightly lighter, professional dark green */
+    --sidebar-foreground: 0 0% 98%;    /* White/very light gray for high contrast */
+    --sidebar-primary: 0 0% 100%;      /* White for primary elements */
+    --sidebar-primary-foreground: 158 43% 20%; /* Dark green text on white background */
+    --sidebar-accent: 0 0% 100%;       /* White for hover/active state background */
+    --sidebar-accent-foreground: 158 43% 15%; /* Darkest green for text on hover/active */
+    --sidebar-border: 158 43% 25%;    /* Border color that blends in */
+    --sidebar-ring: 0 0% 100%;         /* White ring for focus */
   }
 }
 
