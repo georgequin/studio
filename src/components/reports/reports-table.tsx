@@ -53,6 +53,7 @@ import type { Report, Source } from '@/lib/types';
 import { CATEGORY_COLORS } from '@/lib/thematic-areas';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
+import { Skeleton } from '../ui/skeleton';
 
 const convertToCSV = (data: Report[], sourceMap: Map<string, string>) => {
   const headers = ['ID', 'Publication Date', 'Title', 'Source', 'Category', 'Thematic Area', 'Summary'];
@@ -224,6 +225,21 @@ const ReportDetailsDialog = ({ report, sourceName }: { report: Report; sourceNam
     );
 };
 
+const TableSkeleton = ({ columns }: { columns: ColumnDef<Report>[] }) => {
+    return (
+        <>
+            {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                    {columns.map((column) => (
+                        <TableCell key={column.id || 'col'}>
+                            <Skeleton className="h-6 w-full" />
+                        </TableCell>
+                    ))}
+                </TableRow>
+            ))}
+        </>
+    )
+}
 
 export function ReportsTable() {
   const firestore = useFirestore();
@@ -371,11 +387,7 @@ export function ReportsTable() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableRow>
-                    <TableCell colSpan={columns.length} className="h-24 text-center">
-                        Loading reports...
-                    </TableCell>
-                </TableRow>
+                <TableSkeleton columns={columns} />
             ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow

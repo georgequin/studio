@@ -15,6 +15,7 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import type { Report } from '@/lib/types';
 import type { Source } from '@/lib/types';
+import { Skeleton } from '../ui/skeleton';
 
 export function DashboardContent() {
   const firestore = useFirestore();
@@ -50,7 +51,7 @@ export function DashboardContent() {
             <CardDescription>Total articles processed</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{isLoading ? '...' : totalReports}</p>
+            {isLoading ? <Skeleton className="w-20 h-10"/> : <p className="text-4xl font-bold">{totalReports}</p>}
           </CardContent>
         </Card>
         <Card>
@@ -59,7 +60,7 @@ export function DashboardContent() {
             <CardDescription>Distinct violation categories</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{isLoading ? '...' : totalCategories}</p>
+            {isLoading ? <Skeleton className="w-20 h-10"/> : <p className="text-4xl font-bold">{totalCategories}</p>}
           </CardContent>
         </Card>
         <Card>
@@ -68,7 +69,7 @@ export function DashboardContent() {
             <CardDescription>Unique publications tracked</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{isLoading ? '...' : totalSources}</p>
+            {isLoading ? <Skeleton className="w-20 h-10"/> : <p className="text-4xl font-bold">{totalSources}</p>}
           </CardContent>
         </Card>
       </div>
@@ -82,7 +83,7 @@ export function DashboardContent() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <CategoryChart data={reports || []} />
+            {isLoading ? <Skeleton className="h-80 w-full" /> : <CategoryChart data={reports || []} />}
           </CardContent>
         </Card>
         <Card>
@@ -93,7 +94,7 @@ export function DashboardContent() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <SourceChart reports={reports || []} sources={sources || []} />
+            {isLoading ? <Skeleton className="h-80 w-full" /> : <SourceChart reports={reports || []} sources={sources || []} />}
           </CardContent>
         </Card>
         <Card className="lg:col-span-2">
@@ -104,7 +105,7 @@ export function DashboardContent() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <FrequencyChart data={reports || []} />
+            {isLoading ? <Skeleton className="h-80 w-full" /> : <FrequencyChart data={reports || []} />}
           </CardContent>
         </Card>
       </div>

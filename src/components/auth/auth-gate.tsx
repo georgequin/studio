@@ -3,7 +3,42 @@
 import * as React from 'react';
 import { useAuth, useUser } from '@/firebase/provider';
 import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
-import { LoaderCircle } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+
+function AppSkeleton() {
+  return (
+    <div className="flex min-h-screen w-full">
+      {/* Sidebar Skeleton */}
+      <div className="hidden md:flex flex-col justify-between w-64 p-2 border-r bg-muted/20">
+        <div>
+            <div className="p-2 mb-4">
+                <Skeleton className="h-8 w-3/4" />
+            </div>
+            <div className="flex flex-col gap-2 p-2">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+            </div>
+        </div>
+        <div className="p-2">
+            <Skeleton className="h-8 w-full" />
+        </div>
+      </div>
+      {/* Main Content Skeleton */}
+      <div className="flex-1 p-8">
+        <Skeleton className="h-10 w-1/4 mb-8" />
+        <div className="grid gap-8">
+            <div className="grid lg:grid-cols-3 gap-8">
+                <Skeleton className="h-96 lg:col-span-1" />
+                <Skeleton className="h-96 lg:col-span-2" />
+            </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
@@ -16,11 +51,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }, [isUserLoading, user, auth]);
 
   if (isUserLoading || !user) {
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-background">
-        <LoaderCircle className="animate-spin text-primary" size={48} />
-      </div>
-    );
+    return <AppSkeleton />;
   }
 
   return <>{children}</>;

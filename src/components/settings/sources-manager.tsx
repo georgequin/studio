@@ -30,7 +30,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, LoaderCircle } from 'lucide-react';
+import { PlusCircle, Trash2 } from 'lucide-react';
+import { Skeleton } from '../ui/skeleton';
 
 const sourceSchema = z.object({
   name: z.string().min(1, 'Source name is required.'),
@@ -170,6 +171,20 @@ export function SourcesManager() {
       });
   }
 
+  const SourcesSkeleton = () => (
+    <div className="space-y-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex justify-between items-center bg-muted/25 p-2 rounded-md">
+                <div className='w-full'>
+                    <Skeleton className="h-5 w-1/3 mb-2" />
+                    <Skeleton className="h-4 w-1/2" />
+                </div>
+                <Skeleton className="h-8 w-8" />
+            </div>
+        ))}
+    </div>
+  );
+
   return (
     <div className="grid gap-8">
       <Card>
@@ -247,10 +262,7 @@ export function SourcesManager() {
         </CardHeader>
         <CardContent>
             {isLoading || isSeeding ? (
-                <div className="flex items-center gap-2">
-                    <LoaderCircle className="animate-spin" />
-                    <span>Loading sources...</span>
-                </div>
+                <SourcesSkeleton />
             ) : (
                 <ul className="space-y-2">
                     {sources?.map((source) => (
