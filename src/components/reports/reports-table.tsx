@@ -57,11 +57,11 @@ const convertToCSV = (data: Report[], sourceMap: Map<string, string>) => {
   const rows = data.map(d => [
     d.id,
     d.publicationDate,
-    `"${d.title.replace(/"/g, '""')}"`,
+    `"${(d.title || '').replace(/"/g, '""')}"`,
     sourceMap.get(d.sourceId) || d.sourceId,
     d.category,
     d.thematicArea,
-    `"${d.summary.replace(/"/g, '""')}"`
+    `"${(d.summary || '').replace(/"/g, '""')}"`
   ].join(','));
   return [headers.join(','), ...rows].join('\n');
 };
