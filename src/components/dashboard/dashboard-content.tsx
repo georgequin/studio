@@ -33,7 +33,7 @@ export function DashboardContent() {
   const { data: sources, isLoading: sourcesLoading } =
     useCollection<Source>(sourcesCollection);
 
-  const totalClippings = reports?.length || 0;
+  const totalReports = reports?.length || 0;
   const totalCategories = reports
     ? new Set(reports.map((r) => r.category)).size
     : 0;
@@ -46,11 +46,11 @@ export function DashboardContent() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>Total Clippings</CardTitle>
+            <CardTitle>Total Reports</CardTitle>
             <CardDescription>Total articles processed</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold">{isLoading ? '...' : totalClippings}</p>
+            <p className="text-4xl font-bold">{isLoading ? '...' : totalReports}</p>
           </CardContent>
         </Card>
         <Card>
@@ -76,7 +76,7 @@ export function DashboardContent() {
       <div className="grid gap-8 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Clippings by Category</CardTitle>
+            <CardTitle>Reports by Category</CardTitle>
             <CardDescription>
               Distribution of processed articles across different categories.
             </CardDescription>
@@ -87,7 +87,7 @@ export function DashboardContent() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Clippings by Source</CardTitle>
+            <CardTitle>Reports by Source</CardTitle>
             <CardDescription>
               Breakdown of articles from various news sources.
             </CardDescription>
@@ -98,9 +98,9 @@ export function DashboardContent() {
         </Card>
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Clipping Frequency</CardTitle>
+            <CardTitle>Report Frequency</CardTitle>
             <CardDescription>
-              Volume of clippings processed over the last few months.
+              Volume of reports processed over the last few months.
             </CardDescription>
           </CardHeader>
           <CardContent>

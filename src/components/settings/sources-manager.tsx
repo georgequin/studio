@@ -176,7 +176,7 @@ export function SourcesManager() {
         <CardHeader>
           <CardTitle>Manage News Sources</CardTitle>
           <CardDescription>
-            Add new news sources to be used for clipping selection.
+            Add new news sources to be used for report selection.
           </CardDescription>
         </CardHeader>
         <CardContent>

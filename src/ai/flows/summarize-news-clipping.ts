@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview An AI agent for summarizing news clippings related to potential human rights violations.
+ * @fileOverview An AI agent for summarizing news articles related to potential human rights violations.
  *
  * - summarizeNewsClipping - A function that handles the summarization process.
  * - SummarizeNewsClippingInput - The input type for the summarizeNewsClipping function.
@@ -13,14 +13,14 @@ import {z} from 'genkit';
 const SummarizeNewsClippingInputSchema = z.object({
   text: z
     .string()
-    .describe('The text content of the news clipping to summarize.'),
+    .describe('The text content of the news page to summarize.'),
 });
 export type SummarizeNewsClippingInput = z.infer<typeof SummarizeNewsClippingInputSchema>;
 
 const SingleArticleSchema = z.object({
-  summary: z.string().describe('A concise summary of the single, most relevant human rights-related news clipping found in the text.'),
+  summary: z.string().describe('A concise summary of the single, most relevant human rights-related news article found in the text.'),
   extractedArticle: z.string().describe('The full, verbatim text of the single most relevant human rights-related article found in the provided text.'),
-  containsViolation: z.boolean().describe('Whether the clipping contains a potential human rights violation.'),
+  containsViolation: z.boolean().describe('Whether the article contains a potential human rights violation.'),
 });
 
 const SummarizeNewsClippingOutputSchema = z.object({

@@ -4,7 +4,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Source",
       "type": "object",
-      "description": "Represents the source of a news clipping or article.",
+      "description": "Represents the source of a news article or report.",
       "properties": {
         "id": {
           "type": "string",

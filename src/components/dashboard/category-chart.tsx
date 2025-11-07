@@ -12,8 +12,8 @@ import { CATEGORY_COLORS } from '@/lib/thematic-areas';
 
 export function CategoryChart({ data }: { data: Report[] }) {
   const chartData = React.useMemo(() => {
-    const categoryCounts = data.reduce((acc, clipping) => {
-      const category = clipping.category || 'Uncategorized';
+    const categoryCounts = data.reduce((acc, report) => {
+      const category = report.category || 'Uncategorized';
       acc[category] = (acc[category] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);

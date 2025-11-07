@@ -18,8 +18,8 @@ export function SourceChart({ reports, sources }: { reports: Report[], sources: 
   }, [sources]);
 
   const chartData = React.useMemo(() => {
-    const sourceCounts = reports.reduce((acc, clipping) => {
-      const sourceName = sourceMap.get(clipping.sourceId) || 'Unknown Source';
+    const sourceCounts = reports.reduce((acc, report) => {
+      const sourceName = sourceMap.get(report.sourceId) || 'Unknown Source';
       acc[sourceName] = (acc[sourceName] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -82,7 +82,7 @@ export function SourceChart({ reports, sources }: { reports: Report[], sources: 
                       y={(viewBox.cy || 0) + 24}
                       className="fill-muted-foreground"
                     >
-                      Clippings
+                      Reports
                     </tspan>
                   </text>
                 );

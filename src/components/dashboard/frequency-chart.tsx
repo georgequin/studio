@@ -20,8 +20,8 @@ import type { Report } from '@/lib/types';
 
 export function FrequencyChart({ data }: { data: Report[] }) {
   const chartData = React.useMemo(() => {
-    const monthCounts = data.reduce((acc, clipping) => {
-      const month = format(new Date(clipping.publicationDate), 'yyyy-MM');
+    const monthCounts = data.reduce((acc, report) => {
+      const month = format(new Date(report.publicationDate), 'yyyy-MM');
       acc[month] = (acc[month] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -36,7 +36,7 @@ export function FrequencyChart({ data }: { data: Report[] }) {
 
   const chartConfig = {
     count: {
-      label: 'Clippings',
+      label: 'Reports',
       color: 'hsl(var(--primary))',
     },
   };

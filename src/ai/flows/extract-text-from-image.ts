@@ -2,7 +2,7 @@
 /**
  * @fileOverview This file defines a Genkit flow for extracting text from an image (OCR).
  *
- * - extractTextFromImage - A function that takes an image of a news clipping and returns the extracted text.
+ * - extractTextFromImage - A function that takes an image of a news article and returns the extracted text.
  * - ExtractTextFromImageInput - The input type for the extractTextFromImage function.
  * - ExtractTextFromImageOutput - The return type for the extractTextFromImage function.
  */
@@ -14,7 +14,7 @@ const ExtractTextFromImageInputSchema = z.object({
   photoDataUri: z
     .string()
     .describe(
-      "A photo of a news clipping, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+      "A photo of a news article, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
 });
 export type ExtractTextFromImageInput = z.infer<
@@ -38,7 +38,7 @@ const ocrPrompt = ai.definePrompt({
   name: 'ocrPrompt',
   input: {schema: ExtractTextFromImageInputSchema},
   output: {schema: ExtractTextFromImageOutputSchema},
-  prompt: `You are an OCR (Optical Character Recognition) expert. Extract all text from the following image of a news clipping.
+  prompt: `You are an OCR (Optical Character Recognition) expert. Extract all text from the following image of a news article.
 
   Image: {{media url=photoDataUri}}`,
 });

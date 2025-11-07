@@ -167,9 +167,6 @@ const AnalysisResultCard = ({
 
 export function ClippingProcessor() {
   const [state, formAction] = useActionState(processClippingAction, initialState);
-  const clippingImage = PlaceHolderImages.find(
-    (img) => img.id === 'clipping-upload'
-  );
 
   const [editableResults, setEditableResults] = React.useState<AnalysisResult[] | null>(null);
   const { toast } = useToast();
@@ -238,6 +235,14 @@ export function ClippingProcessor() {
             description: 'Could not connect to the database. Please try again.',
         });
         return;
+    }
+    if (!currentSourceId) {
+      toast({
+        variant: 'destructive',
+        title: 'Source Required',
+        description: 'Please select a news source before saving.',
+      });
+      return;
     }
 
     const newReportRef = doc(collection(firestore, 'reports'));
@@ -343,7 +348,7 @@ export function ClippingProcessor() {
         <Card className="lg:col-span-2">
             <CardHeader>
                 <CardTitle>Camera Capture</CardTitle>
-                <CardDescription>Capture an image of the newspaper clipping.</CardDescription>
+                <CardDescription>Capture an image of the newspaper article.</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="relative">

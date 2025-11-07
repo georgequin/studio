@@ -5,7 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 export const metadata: Metadata = {
   title: 'NHRC AI Watch',
   description:
-    'AI-powered monitoring of human rights violations from news clippings.',
+    'AI-powered monitoring of human rights violations from news reports.',
 };
 
 export default function RootLayout({
