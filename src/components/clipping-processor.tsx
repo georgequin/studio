@@ -76,6 +76,7 @@ const AnalysisResultCard = ({
     result,
     onSave,
     index,
+    onUpdate
 }: {
     result: AnalysisResult;
     onSave: () => void;
@@ -164,7 +165,7 @@ export function ClippingProcessor() {
   }, [state.data]);
 
   React.useEffect(() => {
-    if (state.message && state.data !== null) { // Check if data is not null to avoid showing initial toast
+     if (state.message) {
       if (state.errors) {
         toast({
           variant: 'destructive',
@@ -216,7 +217,6 @@ export function ClippingProcessor() {
 
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const formRef = React.useRef<HTMLFormElement>(null);
   const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
   const [sourceId, setSourceId] = React.useState<string>('');
 
@@ -307,22 +307,6 @@ export function ClippingProcessor() {
     }
   };
 
-  const handleFormAction = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); // Prevent default form submission
-    if (!sourceId) {
-      toast({
-        variant: 'destructive',
-        title: 'Source Required',
-        description: 'Please select a news source before extracting stories.',
-      });
-      return;
-    }
-    // Manually create FormData and call the action
-    const formData = new FormData(event.currentTarget);
-    formAction(formData);
-  };
-
-
   if (isCameraOpen) {
     return (
       <Card>
@@ -361,7 +345,7 @@ export function ClippingProcessor() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form ref={formRef} onSubmit={handleFormAction} className="grid gap-6">
+          <form action={formAction} className="grid gap-6">
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="source-select">Source</Label>
@@ -375,6 +359,11 @@ export function ClippingProcessor() {
                     ))}
                   </SelectContent>
                 </Select>
+                 {state?.errors?.sourceId && (
+                  <p className="text-sm text-destructive">
+                    {state.errors.sourceId}
+                  </p>
+                )}
                 <Label htmlFor="text-input">Clipping Text (Optional)</Label>
                 <Textarea
                   id="text-input"

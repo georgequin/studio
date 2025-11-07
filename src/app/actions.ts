@@ -9,6 +9,7 @@ import imageType from 'image-type';
 
 const inputSchema = z.object({
   text: z.string().optional(),
+  sourceId: z.string().min(1, { message: 'Please select a news source.' }),
 });
 
 export type AnalysisResult = {
@@ -26,11 +27,11 @@ export async function processClippingAction(
 ) {
   const validatedFields = inputSchema.safeParse({
     text: formData.get('text'),
+    sourceId: formData.get('sourceId'),
   });
   
   const files = formData.getAll('files') as File[];
-  let textToProcess = validatedFields.success ? validatedFields.data.text : '';
-
+  
   if (!validatedFields.success) {
     return {
       message: 'Invalid input.',
@@ -38,6 +39,8 @@ export async function processClippingAction(
       data: null,
     };
   }
+
+  let textToProcess = validatedFields.data.text || '';
 
   try {
     if (files.length > 0) {
@@ -58,7 +61,7 @@ export async function processClippingAction(
                 allExtractedText += ocrResult.text + '\n\n';
              }
         }
-        textToProcess = (textToProcess || '') + allExtractedText;
+        textToProcess += allExtractedText;
     } 
     
     if (!textToProcess) {
