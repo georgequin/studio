@@ -30,7 +30,7 @@ export type AnalysisResult = {
 
 // Helper function to fetch recent reports
 async function getRecentReports() {
-  const { firestore } = getSdks();
+  const { firestore } = await getSdks();
   const reportsRef = collection(firestore, 'reports');
   const q = query(reportsRef, orderBy('uploadDate', 'desc'), limit(25)); // Look at last 25 reports
   const querySnapshot = await getDocs(q);
@@ -64,27 +64,38 @@ export async function processClippingAction(
 
   try {
     if (files.length > 0) {
-      let allExtractedText = '';
-      for (const file of files) {
-        if (file instanceof File && file.size > 0) {
-          const buffer = Buffer.from(await file.arrayBuffer());
-          const imageType = (await import('image-type')).default;
-          const type = await imageType(buffer);
+      const imageType = (await import('image-type')).default;
 
-          if (!type) {
-            console.warn(`Skipping a file of unknown type: ${file.name}`);
-            continue;
-          }
+      const extractedTexts = (
+        await Promise.all(
+          files.map(async (file) => {
+            if (!(file instanceof File) || file.size === 0) {
+              return '';
+            }
 
-          const photoDataUri = `data:${type.mime};base64,${buffer.toString(
-            'base64'
-          )}`;
+            const buffer = Buffer.from(await file.arrayBuffer());
+            const type = await imageType(buffer);
 
-          const ocrResult = await extractTextFromImage({ photoDataUri });
-          allExtractedText += ocrResult.text + '\n\n';
-        }
-      }
-      textToProcess += allExtractedText;
+            if (!type) {
+              console.warn(`Skipping a file of unknown type: ${file.name}`);
+              return '';
+            }
+
+            const photoDataUri = `data:${type.mime};base64,${buffer.toString(
+              'base64'
+            )}`;
+
+            const { text } = await extractTextFromImage({ photoDataUri });
+            return text.trim();
+          })
+        )
+      )
+        .filter((text): text is string => Boolean(text))
+        .join('\n\n');
+
+      textToProcess = [textToProcess?.trim(), extractedTexts]
+        .filter(Boolean)
+        .join('\n\n');
     }
 
     if (!textToProcess) {
@@ -112,34 +123,39 @@ export async function processClippingAction(
     // Fetch recent reports for duplicate check
     const recentReports = await getRecentReports();
 
-    const analysisResults: AnalysisResult[] = [];
+    const analysisResults: AnalysisResult[] = (
+      await Promise.all(
+        summaryResult.articles.map(async (article) => {
+          if (!article.containsViolation) {
+            return null;
+          }
 
-    for (const article of summaryResult.articles) {
-      if (article.containsViolation) {
-        const categoryResult = await categorizeNewsClipping({
-          text: article.extractedArticle,
-        });
+          const [categoryResult, duplicateResult] = await Promise.all([
+            categorizeNewsClipping({
+              text: article.extractedArticle,
+            }),
+            detectDuplicateIncident({
+              newArticleText: article.extractedArticle,
+              recentReports: recentReports,
+            }),
+          ]);
 
-        const duplicateResult = await detectDuplicateIncident({
-          newArticleText: article.extractedArticle,
-          recentReports: recentReports,
-        });
-        
-        const thematicArea =
-          THEMATIC_AREA_MAP[
-            categoryResult.category as keyof typeof THEMATIC_AREA_MAP
-          ] || 'Unassigned';
+          const thematicArea =
+            THEMATIC_AREA_MAP[
+              categoryResult.category as keyof typeof THEMATIC_AREA_MAP
+            ] || 'Unassigned';
 
-        analysisResults.push({
-          ...article,
-          ...categoryResult,
-          thematicArea,
-          isDuplicate: duplicateResult.isDuplicate,
-          duplicateReportId: duplicateResult.duplicateReportId,
-          reasoning: duplicateResult.reasoning,
-        });
-      }
-    }
+          return {
+            ...article,
+            ...categoryResult,
+            thematicArea,
+            isDuplicate: duplicateResult.isDuplicate,
+            duplicateReportId: duplicateResult.duplicateReportId,
+            reasoning: duplicateResult.reasoning,
+          } satisfies AnalysisResult;
+        })
+      )
+    ).filter((result): result is AnalysisResult => result !== null);
 
     return {
       message: 'Analysis complete.',

@@ -1,8 +1,7 @@
 'use client';
 
-import { useActionState, useTransition } from 'react';
+import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import Image from 'next/image';
 import {
   FolderKanban,
   Lightbulb,
@@ -18,6 +17,8 @@ import {
   Text,
   AlertTriangle,
   Link,
+  CheckCircle2,
+  Info,
 } from 'lucide-react';
 import * as React from 'react';
 
@@ -32,7 +33,6 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { processClippingAction, type AnalysisResult } from '@/app/actions';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -49,6 +49,9 @@ import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { THEMATIC_AREA_MAP } from '@/lib/thematic-areas';
+
+const AUTO_CROP_THRESHOLD = 238;
+const MIN_AUTO_CROP_AREA_REDUCTION = 0.08;
 
 const initialState: {
   message: string | null;
@@ -78,6 +81,181 @@ function SubmitButton() {
       )}
     </Button>
   );
+}
+
+type FileMetaKey = string;
+type FileMeta = Record<
+  FileMetaKey,
+  {
+    wasAutoCropped: boolean;
+    originalName: string;
+  }
+>;
+
+function buildFileMetaKey(file: File) {
+  return `${file.name}-${file.lastModified}-${file.size}`;
+}
+
+async function loadImageFromBlob(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(blob);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = (error) => {
+      URL.revokeObjectURL(objectUrl);
+      reject(error);
+    };
+    image.src = objectUrl;
+  });
+}
+
+function detectContentBounds(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number
+) {
+  const { data } = context.getImageData(0, 0, width, height);
+
+  let top = height;
+  let bottom = 0;
+  let left = width;
+  let right = 0;
+
+  const stepX = Math.max(1, Math.floor(width / 1000));
+  const stepY = Math.max(1, Math.floor(height / 1000));
+
+  for (let y = 0; y < height; y += stepY) {
+    for (let x = 0; x < width; x += stepX) {
+      const idx = (y * width + x) * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+
+      if (brightness < AUTO_CROP_THRESHOLD) {
+        if (x < left) left = x;
+        if (x > right) right = x;
+        if (y < top) top = y;
+        if (y > bottom) bottom = y;
+      }
+    }
+  }
+
+  if (left >= right || top >= bottom) {
+    return null;
+  }
+
+  return { top, bottom, left, right };
+}
+
+async function autoCropBlob(blob: Blob, fileName: string): Promise<{
+  file: File;
+  wasAutoCropped: boolean;
+}> {
+  try {
+    const image = await loadImageFromBlob(blob);
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth || image.width;
+    canvas.height = image.naturalHeight || image.height;
+
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) {
+      throw new Error('Unable to access canvas context');
+    }
+
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    const bounds = detectContentBounds(context, canvas.width, canvas.height);
+    if (!bounds) {
+      return {
+        file: new File([blob], fileName, {
+          type: blob.type,
+          lastModified: Date.now(),
+        }),
+        wasAutoCropped: false,
+      };
+    }
+
+    const cropWidth = bounds.right - bounds.left;
+    const cropHeight = bounds.bottom - bounds.top;
+    const originalArea = canvas.width * canvas.height;
+    const croppedArea = cropWidth * cropHeight;
+
+    const areaReduction = 1 - croppedArea / originalArea;
+
+    if (areaReduction < MIN_AUTO_CROP_AREA_REDUCTION) {
+      return {
+        file: new File([blob], fileName, {
+          type: blob.type,
+          lastModified: Date.now(),
+        }),
+        wasAutoCropped: false,
+      };
+    }
+
+    const croppedCanvas = document.createElement('canvas');
+    croppedCanvas.width = cropWidth;
+    croppedCanvas.height = cropHeight;
+    const croppedContext = croppedCanvas.getContext('2d');
+    if (!croppedContext) {
+      throw new Error('Unable to access cropped canvas context');
+    }
+
+    croppedContext.drawImage(
+      canvas,
+      bounds.left,
+      bounds.top,
+      cropWidth,
+      cropHeight,
+      0,
+      0,
+      cropWidth,
+      cropHeight
+    );
+
+    const outputType = blob.type || 'image/png';
+    const croppedBlob = await new Promise<Blob | null>((resolve) =>
+      croppedCanvas.toBlob((canvasBlob) => resolve(canvasBlob), outputType, 0.95)
+    );
+
+    if (!croppedBlob) {
+      throw new Error('Failed to create cropped image blob');
+    }
+
+    const normalizedName = fileName.replace(/\.(\w+)$/, '');
+    const extension = outputType.split('/')[1] || 'png';
+
+    return {
+      file: new File([croppedBlob], `${normalizedName}-cropped.${extension}`, {
+        type: outputType,
+        lastModified: Date.now(),
+      }),
+      wasAutoCropped: true,
+    };
+  } catch (error) {
+    console.warn('Auto-crop failed, using original image', error);
+    return {
+      file: new File([blob], fileName, {
+        type: blob.type,
+        lastModified: Date.now(),
+      }),
+      wasAutoCropped: false,
+    };
+  }
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const power = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1
+  );
+  const value = bytes / Math.pow(1024, power);
+  return `${value.toFixed(value >= 10 || power === 0 ? 0 : 1)} ${units[power]}`;
 }
 
 const AnalysisResultCard = ({
@@ -192,6 +370,7 @@ export function ClippingProcessor() {
 
   const [files, setFiles] = React.useState<File[]>([]);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [fileMeta, setFileMeta] = React.useState<FileMeta>({});
 
   const [sourceId, setSourceId] = React.useState<string>('');
 
@@ -287,14 +466,71 @@ export function ClippingProcessor() {
   };
 
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      setFiles((prevFiles) => [...prevFiles, ...Array.from(event.target.files!)]);
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || event.target.files.length === 0) {
+      return;
+    }
+
+    const incomingFiles = Array.from(event.target.files);
+    event.target.value = '';
+
+    try {
+      const processedResults = await Promise.all(
+        incomingFiles.map(async (file) => {
+          const { file: processedFile, wasAutoCropped } = await autoCropBlob(
+            file,
+            file.name
+          );
+          return { processedFile, wasAutoCropped, original: file };
+        })
+      );
+
+      setFiles((prevFiles) => [
+        ...prevFiles,
+        ...processedResults.map(({ processedFile }) => processedFile),
+      ]);
+
+      setFileMeta((prevMeta) => {
+        const nextMeta = { ...prevMeta };
+        processedResults.forEach(({ processedFile, wasAutoCropped, original }) => {
+          nextMeta[buildFileMetaKey(processedFile)] = {
+            wasAutoCropped,
+            originalName: original.name,
+          };
+        });
+        return nextMeta;
+      });
+
+      if (processedResults.some((result) => result.wasAutoCropped)) {
+        toast({
+          title: 'Images enhanced',
+          description: 'We auto-cropped your newspaper photos for clarity.',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to process selected files', error);
+      toast({
+        variant: 'destructive',
+        title: 'Image processing failed',
+        description:
+          'We could not enhance one or more images. Please try again or upload a different file.',
+      });
     }
   };
 
   const handleRemoveFile = (index: number) => {
-    setFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
+    setFiles((prevFiles) => {
+      const nextFiles = prevFiles.filter((_, i) => i !== index);
+      const removedFile = prevFiles[index];
+      if (removedFile) {
+        setFileMeta((prevMeta) => {
+          const nextMeta = { ...prevMeta };
+          delete nextMeta[buildFileMetaKey(removedFile)];
+          return nextMeta;
+        });
+      }
+      return nextFiles;
+    });
   };
   
   const handleOpenCamera = () => {
@@ -310,7 +546,7 @@ export function ClippingProcessor() {
       setHasCameraPermission(null);
   };
   
-  const handleCapture = () => {
+  const handleCapture = async () => {
     if (videoRef.current && canvasRef.current) {
         const video = videoRef.current;
         const canvas = canvasRef.current;
@@ -319,13 +555,37 @@ export function ClippingProcessor() {
         const context = canvas.getContext('2d');
         if (context) {
             context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-            canvas.toBlob(blob => {
-                if (blob) {
-                    const file = new File([blob], `capture-${Date.now()}.png`, { type: 'image/png' });
-                    setFiles(prevFiles => [...prevFiles, file]);
-                    handleCloseCamera();
-                }
-            }, 'image/png');
+            const blob = await new Promise<Blob | null>((resolve) =>
+              canvas.toBlob((canvasBlob) => resolve(canvasBlob), 'image/jpeg', 0.92)
+            );
+            if (blob) {
+              const suggestedName = `capture-${Date.now()}.jpg`;
+              const { file: processedFile, wasAutoCropped } = await autoCropBlob(
+                blob,
+                suggestedName
+              );
+              setFiles((prevFiles) => [...prevFiles, processedFile]);
+              setFileMeta((prevMeta) => ({
+                ...prevMeta,
+                [buildFileMetaKey(processedFile)]: {
+                  wasAutoCropped,
+                  originalName: suggestedName,
+                },
+              }));
+              toast({
+                title: wasAutoCropped ? 'Capture ready' : 'Capture saved',
+                description: wasAutoCropped
+                  ? 'We trimmed the edges to keep the article in focus.'
+                  : 'Your capture is ready for analysis.',
+              });
+              handleCloseCamera();
+            } else {
+              toast({
+                variant: 'destructive',
+                title: 'Capture failed',
+                description: 'We could not read the camera frame. Please try again.',
+              });
+            }
         }
     }
   };
@@ -364,159 +624,278 @@ export function ClippingProcessor() {
 
 
   return (
-    <div className="grid gap-8 p-4 md:p-6 lg:p-8">
+    <div className="grid gap-8 p-4 md:p-6 lg:p-10 max-w-6xl mx-auto">
       {showCamera ? (
         <Card className="lg:col-span-2">
-            <CardHeader>
-                <CardTitle>Camera Capture</CardTitle>
-                <CardDescription>Capture an image of the newspaper article.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="relative">
-                    <video ref={videoRef} className="w-full aspect-video rounded-md bg-muted" autoPlay muted playsInline />
-                    {hasCameraPermission === false && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-md">
-                            <Alert variant="destructive" className="w-auto">
-                                <AlertTitle>Camera Access Required</AlertTitle>
-                                <AlertDescription>Please allow camera access to use this feature.</AlertDescription>
-                            </Alert>
-                        </div>
-                    )}
+          <CardHeader>
+            <CardTitle>Camera Capture</CardTitle>
+            <CardDescription>
+              Align the newspaper clipping within the frame. We will auto-crop the article for you.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="relative">
+              <video
+                ref={videoRef}
+                className="w-full aspect-video rounded-md bg-muted"
+                autoPlay
+                muted
+                playsInline
+              />
+              {hasCameraPermission === false && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/50">
+                  <Alert variant="destructive" className="w-auto">
+                    <AlertTitle>Camera Access Required</AlertTitle>
+                    <AlertDescription>Please allow camera access to use this feature.</AlertDescription>
+                  </Alert>
                 </div>
-                 <canvas ref={canvasRef} className="hidden" />
-            </CardContent>
-            <CardContent className="flex justify-end gap-2">
-                <Button variant="outline" onClick={handleCloseCamera}>Cancel</Button>
-                <Button onClick={handleCapture} disabled={!hasCameraPermission}>
-                    <Camera className="mr-2" /> Capture
-                </Button>
-            </CardContent>
+              )}
+            </div>
+            <canvas ref={canvasRef} className="hidden" />
+          </CardContent>
+          <CardContent className="flex justify-end gap-2">
+            <Button variant="outline" onClick={handleCloseCamera}>
+              Cancel
+            </Button>
+            <Button onClick={handleCapture} disabled={!hasCameraPermission}>
+              <Camera className="mr-2" /> Capture
+            </Button>
+          </CardContent>
         </Card>
       ) : (
         <form action={formAction} className="grid gap-8">
-        <div className="grid lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-1 flex flex-col gap-8">
+          <div className="grid gap-8">
             <Card>
-                <CardHeader>
-                    <CardTitle>Input Source</CardTitle>
-                    <CardDescription>
-                        Provide content for the AI to analyze.
+              <CardHeader className="space-y-1">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-2xl font-semibold">Prepare your clipping</CardTitle>
+                    <CardDescription className="text-base">
+                      Upload a scan or capture a photo, choose the source, then let the AI extract and summarize the stories.
                     </CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-6">
+                  </div>
+                  <Badge variant="outline" className="flex items-center gap-1 px-3 py-1">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    Enhanced OCR
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="grid gap-6 md:grid-cols-3">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 rounded-full bg-primary/10 p-2">
+                    <UploadCloud className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Smart image intake</p>
+                    <p className="text-sm text-muted-foreground">
+                      We auto-crop scans to keep the article sharp and remove background clutter.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 rounded-full bg-primary/10 p-2">
+                    <Text className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">High fidelity OCR</p>
+                    <p className="text-sm text-muted-foreground">
+                      Extracted text is cleaned before analysis to speed up downstream AI work.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 rounded-full bg-primary/10 p-2">
+                    <Lightbulb className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Actionable insights</p>
+                    <p className="text-sm text-muted-foreground">
+                      Review, edit, and save each extracted incident with confidence estimates.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid items-start gap-8 lg:grid-cols-3">
+              <div className="sticky top-6 flex flex-col gap-8 lg:col-span-1">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Input settings</CardTitle>
+                    <CardDescription>Provide the context we need to process your clipping.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-6">
                     <div className="grid gap-2">
-                        <Label htmlFor="source">News Source</Label>
-                        <Select name="sourceId" value={sourceId} onValueChange={setSourceId} required>
+                      <Label htmlFor="source">News Source</Label>
+                      <Select name="sourceId" value={sourceId} onValueChange={setSourceId} required>
                         <SelectTrigger>
-                            <SelectValue placeholder="Select a source..." />
+                          <SelectValue placeholder="Select a source..." />
                         </SelectTrigger>
                         <SelectContent>
-                            {sourcesLoading ? (
-                            <SelectItem value="loading" disabled>Loading sources...</SelectItem>
-                            ) : (
+                          {sourcesLoading ? (
+                            <SelectItem value="loading" disabled>
+                              Loading sources...
+                            </SelectItem>
+                          ) : (
                             sources?.map((source) => (
-                                <SelectItem key={source.id} value={source.id}>{source.name}</SelectItem>
+                              <SelectItem key={source.id} value={source.id}>
+                                {source.name}
+                              </SelectItem>
                             ))
-                            )}
+                          )}
                         </SelectContent>
-                        </Select>
+                      </Select>
                     </div>
 
                     <div className="grid gap-2">
-                        <Label>From Image</Label>
-                        <div className="flex items-center gap-2">
-                            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                                <UploadCloud className="mr-2" /> Upload
-                            </Button>
-                            <Button type="button" variant="outline" onClick={handleOpenCamera}>
-                                <Camera className="mr-2" /> Camera
-                            </Button>
-                        </div>
-                        <Input
-                            ref={fileInputRef}
-                            type="file"
-                            name="files"
-                            className="hidden"
-                            onChange={handleFileChange}
-                            multiple
-                            accept="image/*"
-                        />
-                         {files.length > 0 && (
-                            <div className="grid gap-2 pt-2">
-                                {files.map((file, index) => (
-                                <div key={index} className="flex items-center justify-between p-2 pr-1 bg-muted/50 rounded-md text-sm">
-                                    <div className="flex items-center gap-2 overflow-hidden">
-                                    <FileIcon className="text-muted-foreground flex-shrink-0" />
-                                    <span className="text-muted-foreground truncate">{file.name}</span>
+                      <Label>From Image</Label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex-1 min-w-[140px]"
+                        >
+                          <UploadCloud className="mr-2" /> Upload
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleOpenCamera}
+                          className="flex-1 min-w-[140px]"
+                        >
+                          <Camera className="mr-2" /> Camera
+                        </Button>
+                      </div>
+                      <Input
+                        ref={fileInputRef}
+                        type="file"
+                        name="files"
+                        className="hidden"
+                        onChange={handleFileChange}
+                        multiple
+                        accept="image/*"
+                      />
+                      {files.length > 0 && (
+                        <div className="grid gap-2 pt-2">
+                          {files.map((file, index) => {
+                            const key = buildFileMetaKey(file);
+                            const meta = fileMeta[key];
+                            return (
+                              <div
+                                key={key}
+                                className="rounded-md border bg-background p-3 shadow-sm transition hover:border-primary/40"
+                              >
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex items-start gap-3">
+                                    <div className="rounded-md bg-primary/10 p-2 text-primary">
+                                      <FileIcon className="h-4 w-4" />
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => handleRemoveFile(index)}>
-                                    <X className="w-4 h-4" />
-                                    </Button>
+                                    <div className="space-y-1">
+                                      <p className="text-sm font-medium leading-tight">{file.name}</p>
+                                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <span>{formatFileSize(file.size)}</span>
+                                        {meta?.wasAutoCropped && (
+                                          <>
+                                            <span>•</span>
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">
+                                              <CheckCircle2 className="h-3 w-3" />
+                                              Auto-cropped
+                                            </span>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="flex-shrink-0 h-7 w-7"
+                                    onClick={() => handleRemoveFile(index)}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
                                 </div>
-                                ))}
-                            </div>
-                         )}
+                                {meta?.wasAutoCropped && (
+                                  <p className="mt-2 text-xs text-muted-foreground">
+                                    Trimmed from <span className="font-medium text-foreground">{meta.originalName}</span> to
+                                    keep the article in frame.
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                
+
                     <div className="grid gap-2">
-                        <Label htmlFor="text">From Text</Label>
-                        <Textarea
-                            id="text"
-                            name="text"
-                            placeholder="Or paste the article text here..."
-                            className="min-h-[150px] text-base"
-                        />
+                      <Label htmlFor="text">From Text</Label>
+                      <Textarea
+                        id="text"
+                        name="text"
+                        placeholder="Or paste the article text here..."
+                        className="min-h-[150px] text-base"
+                      />
                     </div>
-                </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
 
-            <Alert>
-                <Lightbulb className="h-4 w-4" />
-                <AlertTitle>How it Works</AlertTitle>
-                <AlertDescription>
-                The AI will extract text, then identify and summarize all articles related to human rights violations from your provided content.
-                </AlertDescription>
-            </Alert>
-            </div>
+                <Alert>
+                  <Lightbulb className="h-4 w-4" />
+                  <AlertTitle>How it Works</AlertTitle>
+                  <AlertDescription>
+                    The AI extracts clean text, identifies relevant incidents, and prepares polished summaries you can edit
+                    before saving.
+                  </AlertDescription>
+                </Alert>
+              </div>
 
-            <div className="lg:col-span-2">
-            <Card className="min-h-[400px]">
-                <CardHeader>
-                <CardTitle>Ready to Analyze</CardTitle>
-                <CardDescription>
-                    Your content is ready. Let our AI find the stories.
-                </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center justify-center h-full gap-6 text-center p-8">
-                <div className="relative w-48 h-48">
-                    <div className="absolute inset-0 bg-primary/10 rounded-full animate-pulse"></div>
-                    <div className="absolute inset-2 bg-primary/20 rounded-full animate-pulse delay-200"></div>
-                     <Sparkles className="w-24 h-24 text-primary absolute inset-1/2 -translate-x-1/2 -translate-y-1/2"/>
-                </div>
-                <h3 className="text-xl font-semibold text-foreground">AI Story Extractor is standing by.</h3>
-                <p className="text-muted-foreground max-w-sm">
-                    Click the button below to start the analysis process. You'll be able to review and save each extracted story.
-                </p>
-                <SubmitButton />
-                </CardContent>
-            </Card>
+              <div className="lg:col-span-2">
+                <Card className="min-h-[400px]">
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <CardTitle>Review before analysis</CardTitle>
+                        <CardDescription>
+                          Double-check the inputs, then start the extraction. We'll keep you posted along the way.
+                        </CardDescription>
+                      </div>
+                      <Badge variant="secondary" className="flex items-center gap-1">
+                        <Info className="h-3.5 w-3.5" />
+                        Expected time: &lt; 30s
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex h-full flex-col items-center justify-center gap-6 p-8 text-center">
+                    <div className="relative flex h-48 w-48 items-center justify-center rounded-full border border-dashed border-muted bg-muted/30">
+                      <Sparkles className="h-20 w-20 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-foreground">AI Story Extractor is standing by.</h3>
+                    <p className="max-w-sm text-muted-foreground">
+                      Click below to analyze. While we work, you'll see real-time progress updates for scanning, detection, and
+                      summarization.
+                    </p>
+                    <SubmitButton />
+                  </CardContent>
+                </Card>
+              </div>
             </div>
-        </div>
+          </div>
         </form>
       )}
 
-
-      {editableResults && editableResults.map((result, index) => (
+      {editableResults &&
+        editableResults.map((result, index) => (
           <AnalysisResultCard
-              key={index}
-              result={result}
-              index={index}
-              onUpdate={handleUpdateResult}
-              onSave={handleSaveReport}
-              sourceId={sourceId}
+            key={index}
+            result={result}
+            index={index}
+            onUpdate={handleUpdateResult}
+            onSave={handleSaveReport}
+            sourceId={sourceId}
           />
-      ))}
-
+        ))}
     </div>
   );
 }
