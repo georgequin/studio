@@ -17,7 +17,7 @@ import {
   deleteDocumentNonBlocking,
   errorEmitter,
   FirestorePermissionError,
-} from '@/firebase';
+} from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -44,25 +44,25 @@ const sourcesFormSchema = z.object({
 type SourcesFormValues = z.infer<typeof sourcesFormSchema>;
 
 const initialSources = [
-    { name: 'The Punch (Lagos)', url: '' },
-    { name: 'Vanguard (Lagos)', url: '' },
-    { name: 'The Guardian (Nigeria) (Lagos)', url: '' },
-    { name: 'ThisDay (Lagos/Abuja)', url: '' },
-    { name: 'Daily Trust (Abuja)', url: '' },
-    { name: 'Nigerian Tribune (Ibadan)', url: '' },
-    { name: 'The Sun (Lagos)', url: '' },
-    { name: 'The Nation (Nigeria) (Lagos)', url: '' },
-    { name: 'Leadership (Abuja)', url: '' },
-    { name: 'Blueprint (newspaper) (Abuja)', url: '' },
-    { name: 'Premium Times (Online, Abuja)', url: '' },
-    { name: 'The Whistler (Online, Abuja)', url: '' },
-    { name: 'Prime 9ja Online (Edo State, online)', url: '' },
-    { name: 'The Tide (Port Harcourt, Rivers State)', url: '' },
-    { name: 'Osun Defender (Osogbo, Osun State)', url: '' },
-    { name: 'The Herald (Nigeria) (Kwara State)', url: '' },
-    { name: 'National Network (Port Harcourt)', url: '' },
-    { name: 'The Nigerian Observer (Benin City, Edo State)', url: '' },
-    { name: 'Daily Times (Nigeria) (Lagos)', url: '' },
+  { name: 'The Punch (Lagos)', url: '' },
+  { name: 'Vanguard (Lagos)', url: '' },
+  { name: 'The Guardian (Nigeria) (Lagos)', url: '' },
+  { name: 'ThisDay (Lagos/Abuja)', url: '' },
+  { name: 'Daily Trust (Abuja)', url: '' },
+  { name: 'Nigerian Tribune (Ibadan)', url: '' },
+  { name: 'The Sun (Lagos)', url: '' },
+  { name: 'The Nation (Nigeria) (Lagos)', url: '' },
+  { name: 'Leadership (Abuja)', url: '' },
+  { name: 'Blueprint (newspaper) (Abuja)', url: '' },
+  { name: 'Premium Times (Online, Abuja)', url: '' },
+  { name: 'The Whistler (Online, Abuja)', url: '' },
+  { name: 'Prime 9ja Online (Edo State, online)', url: '' },
+  { name: 'The Tide (Port Harcourt, Rivers State)', url: '' },
+  { name: 'Osun Defender (Osogbo, Osun State)', url: '' },
+  { name: 'The Herald (Nigeria) (Kwara State)', url: '' },
+  { name: 'National Network (Port Harcourt)', url: '' },
+  { name: 'The Nigerian Observer (Benin City, Edo State)', url: '' },
+  { name: 'Daily Times (Nigeria) (Lagos)', url: '' },
 ];
 
 
@@ -71,7 +71,9 @@ export function SourcesManager() {
   const { toast } = useToast();
   const [isSeeding, setIsSeeding] = React.useState(false);
 
-  const sourcesCollectionRef = firestore ? collection(firestore, 'sources') : null;
+  const sourcesCollectionRef = React.useMemo(() => {
+    return firestore ? collection(firestore, 'sources') : null;
+  }, [firestore]);
 
   const { data: sources, isLoading } = useCollection(sourcesCollectionRef);
 
@@ -92,46 +94,47 @@ export function SourcesManager() {
     control,
     name: 'sources',
   });
-  
+
+  const seededRef = React.useRef(false);
+
   React.useEffect(() => {
-    // This effect will run once on component mount to seed the initial data
-    // if the sources collection is empty.
-    const seedInitialData = () => {
-      if (firestore && !isLoading && sources && sources.length === 0 && !isSeeding) {
-        setIsSeeding(true);
-        const batch = writeBatch(firestore);
-        initialSources.forEach((source) => {
-          const docRef = doc(collection(firestore, 'sources'));
-          batch.set(docRef, { ...source, id: docRef.id, createdAt: serverTimestamp() });
+    // This effect should only run once to seed data if empty
+    if (seededRef.current) return;
+
+    if (firestore && !isLoading && sources && sources.length === 0) {
+      seededRef.current = true; // Mark as attempting to seed
+      setIsSeeding(true);
+
+      const batch = writeBatch(firestore);
+      initialSources.forEach((source) => {
+        const docRef = doc(collection(firestore, 'sources'));
+        batch.set(docRef, { ...source, id: docRef.id, createdAt: serverTimestamp() });
+      });
+
+      batch.commit().then(() => {
+        toast({
+          title: 'Initial sources seeded!',
+          description: 'The default list of news sources has been added to the database.',
         });
-
-        batch.commit().then(() => {
-          toast({
-            title: 'Initial sources seeded!',
-            description: 'The default list of news sources has been added to the database.',
-          });
-          setIsSeeding(false);
-        }).catch((error) => {
-           // Create and emit a contextual error for the batch write
-          const permissionError = new FirestorePermissionError({
-            path: 'sources', // Batch applies to the collection
-            operation: 'create', // Seeding is a 'create' operation
-            requestResourceData: initialSources, // The data we tried to add
-          });
-          errorEmitter.emit('permission-error', permissionError);
-
-          toast({
-            variant: 'destructive',
-            title: 'Error seeding data',
-            description: 'Could not seed the initial news sources due to a permission issue.',
-          });
-          setIsSeeding(false);
+        setIsSeeding(false);
+      }).catch((error) => {
+        const permissionError = new FirestorePermissionError({
+          path: 'sources',
+          operation: 'create',
+          requestResourceData: initialSources,
         });
-      }
-    };
+        errorEmitter.emit('permission-error', permissionError);
 
-    seedInitialData();
-  }, [firestore, sources, isLoading, toast, isSeeding]);
+        toast({
+          variant: 'destructive',
+          title: 'Error seeding data',
+          description: 'Could not seed the initial news sources due to a permission issue.',
+        });
+        setIsSeeding(false);
+        // Allow retry if it failed? potentially, but let's avoid loop for now.
+      });
+    }
+  }, [firestore, sources, isLoading, toast]);
 
 
   const onSubmit = (data: SourcesFormValues) => {
@@ -154,28 +157,28 @@ export function SourcesManager() {
     });
     reset({ sources: [{ name: '', url: '' }] });
   };
-  
+
   const handleDelete = (sourceId: string) => {
     if (!firestore) return;
     const docRef = doc(firestore, 'sources', sourceId);
     deleteDocumentNonBlocking(docRef);
     toast({
-        title: 'Source Deleted',
-        description: 'The source has been removed.',
-      });
+      title: 'Source Deleted',
+      description: 'The source has been removed.',
+    });
   }
 
   const SourcesSkeleton = () => (
     <div className="space-y-2">
-        {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex justify-between items-center bg-muted/25 p-2 rounded-md">
-                <div className='w-full'>
-                    <Skeleton className="h-5 w-1/3 mb-2" />
-                    <Skeleton className="h-4 w-1/2" />
-                </div>
-                <Skeleton className="h-8 w-8" />
-            </div>
-        ))}
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="flex justify-between items-center bg-muted/25 p-2 rounded-md">
+          <div className='w-full'>
+            <Skeleton className="h-5 w-1/3 mb-2" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+          <Skeleton className="h-8 w-8" />
+        </div>
+      ))}
     </div>
   );
 
@@ -215,7 +218,7 @@ export function SourcesManager() {
                     {...register(`sources.${index}.url`)}
                     placeholder="https://www.example.com"
                   />
-                   {errors.sources?.[index]?.url && (
+                  {errors.sources?.[index]?.url && (
                     <p className="text-sm text-destructive">
                       {errors.sources[index]?.url?.message}
                     </p>
@@ -251,27 +254,27 @@ export function SourcesManager() {
       </Card>
       <Card>
         <CardHeader>
-            <CardTitle>Existing Sources</CardTitle>
-            <CardDescription>List of currently available news sources.</CardDescription>
+          <CardTitle>Existing Sources</CardTitle>
+          <CardDescription>List of currently available news sources.</CardDescription>
         </CardHeader>
         <CardContent>
-            {isLoading || isSeeding ? (
-                <SourcesSkeleton />
-            ) : (
-                <ul className="space-y-2">
-                    {sources?.map((source) => (
-                        <li key={source.id} className="flex justify-between items-center bg-muted/25 p-2 rounded-md">
-                           <div>
-                             <p className="font-medium">{source.name}</p>
-                             {source.url && <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:underline">{source.url}</a>}
-                           </div>
-                           <Button variant="ghost" size="icon" onClick={() => handleDelete(source.id)}>
-                                <Trash2 className="size-4 text-destructive" />
-                           </Button>
-                        </li>
-                    ))}
-                </ul>
-            )}
+          {isLoading || isSeeding ? (
+            <SourcesSkeleton />
+          ) : (
+            <ul className="space-y-2">
+              {sources?.map((source) => (
+                <li key={source.id} className="flex justify-between items-center bg-muted/25 p-2 rounded-md">
+                  <div>
+                    <p className="font-medium">{source.name}</p>
+                    {source.url && <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:underline">{source.url}</a>}
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => handleDelete(source.id)}>
+                    <Trash2 className="size-4 text-destructive" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

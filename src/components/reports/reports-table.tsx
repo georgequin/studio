@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ArrowUpDown, ChevronDown, Download, Eye } from 'lucide-react';
+import { ArrowUpDown, ChevronDown, Download, Eye, Search } from 'lucide-react';
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -51,7 +51,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Report, Source } from '@/lib/types';
 import { CATEGORY_COLORS } from '@/lib/thematic-areas';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore } from '@/lib/firebase';
 import { collection } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 
@@ -152,13 +152,13 @@ export const getColumns = (sourceMap: Map<string, string>): ColumnDef<Report>[] 
     accessorKey: 'category',
     header: 'Category',
     cell: ({ row }) => {
-        const category = row.getValue('category') as string;
-        const color = CATEGORY_COLORS[category] || 'hsl(var(--muted-foreground))';
-        return (
-            <Badge variant="outline" style={{ borderColor: color, color }}>
-                {category}
-            </Badge>
-        );
+      const category = row.getValue('category') as string;
+      const color = CATEGORY_COLORS[category] || 'hsl(var(--muted-foreground))';
+      return (
+        <Badge variant="outline" style={{ borderColor: color, color }}>
+          {category}
+        </Badge>
+      );
     },
   },
   {
@@ -181,64 +181,64 @@ export const getColumns = (sourceMap: Map<string, string>): ColumnDef<Report>[] 
 ];
 
 const ReportDetailsDialog = ({ report, sourceName }: { report: Report; sourceName: string }) => {
-    const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(false);
 
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button variant="ghost" size="icon">
-                    <Eye className="h-4 w-4" />
-                    <span className="sr-only">View Details</span>
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>{report.title}</DialogTitle>
-                    <DialogDescription>
-                        {sourceName} &middot; {new Date(report.publicationDate).toLocaleDateString()}
-                    </DialogDescription>
-                </DialogHeader>
-                <ScrollArea className="max-h-[60vh] pr-6">
-                    <div className="grid gap-4 py-4">
-                        <div className="space-y-1">
-                            <h4 className="font-semibold">Summary</h4>
-                            <p className="text-sm text-muted-foreground">{report.summary}</p>
-                        </div>
-                        <div className="space-y-1">
-                            <h4 className="font-semibold">Full Extracted Article</h4>
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{report.content}</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <h4 className="font-semibold">Category</h4>
-                                <p className="text-sm text-muted-foreground">{report.category}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <h4 className="font-semibold">Thematic Area</h4>
-                                <p className="text-sm text-muted-foreground">{report.thematicArea}</p>
-                            </div>
-                        </div>
-                    </div>
-                </ScrollArea>
-            </DialogContent>
-        </Dialog>
-    );
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <Eye className="h-4 w-4" />
+          <span className="sr-only">View Details</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{report.title}</DialogTitle>
+          <DialogDescription>
+            {sourceName} &middot; {new Date(report.publicationDate).toLocaleDateString()}
+          </DialogDescription>
+        </DialogHeader>
+        <ScrollArea className="max-h-[60vh] pr-6">
+          <div className="grid gap-4 py-4">
+            <div className="space-y-1">
+              <h4 className="font-semibold">Summary</h4>
+              <p className="text-sm text-muted-foreground">{report.summary}</p>
+            </div>
+            <div className="space-y-1">
+              <h4 className="font-semibold">Full Extracted Article</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{report.content}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <h4 className="font-semibold">Category</h4>
+                <p className="text-sm text-muted-foreground">{report.category}</p>
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-semibold">Thematic Area</h4>
+                <p className="text-sm text-muted-foreground">{report.thematicArea}</p>
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
 };
 
 const TableSkeleton = ({ columns }: { columns: ColumnDef<Report>[] }) => {
-    return (
-        <>
-            {Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                    {columns.map((column) => (
-                        <TableCell key={column.id || 'col'}>
-                            <Skeleton className="h-6 w-full" />
-                        </TableCell>
-                    ))}
-                </TableRow>
-            ))}
-        </>
-    )
+  return (
+    <>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <TableRow key={i}>
+          {columns.map((column, index) => (
+            <TableCell key={index}>
+              <Skeleton className="h-6 w-full" />
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </>
+  )
 }
 
 export function ReportsTable() {
@@ -252,7 +252,7 @@ export function ReportsTable() {
   const { data: reports, isLoading: reportsLoading } = useCollection<Report>(reportsCollection);
 
   const sourcesCollection = React.useMemo(() => {
-    if(!firestore) return null;
+    if (!firestore) return null;
     return collection(firestore, 'sources');
   }, [firestore]);
   const { data: sources, isLoading: sourcesLoading } = useCollection<Source>(sourcesCollection);
@@ -264,7 +264,7 @@ export function ReportsTable() {
     });
     return map;
   }, [sources]);
-  
+
   const isLoading = reportsLoading || sourcesLoading;
   const data = reports || [];
   const columns = React.useMemo(() => getColumns(sourceMap), [sourceMap]);
@@ -273,7 +273,8 @@ export function ReportsTable() {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
-  
+  const [filterInput, setFilterInput] = React.useState('');
+
   const table = useReactTable({
     data,
     columns,
@@ -295,19 +296,19 @@ export function ReportsTable() {
 
   React.useEffect(() => {
     const reportIdToView = searchParams.get('view');
-    if(reportIdToView && table.getCoreRowModel().rows.length > 0) {
-        const row = table.getCoreRowModel().rows.find(r => r.original.id === reportIdToView);
-        if(row){
-            row.toggleSelected(true);
-            const actionCell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
-            // This is a bit of a hack to trigger the dialog
-            // In a real app, you might use a state management library to control the dialog
-            (actionCell?.getContext()?.cell?.column?.id === 'actions') &&
-            setTimeout(() => {
-                 const trigger = document.querySelector(`[data-state="selected"] [aria-haspopup="dialog"]`) as HTMLButtonElement | null;
-                 trigger?.click();
-            }, 100);
-        }
+    if (reportIdToView && table.getCoreRowModel().rows.length > 0) {
+      const row = table.getCoreRowModel().rows.find(r => r.original.id === reportIdToView);
+      if (row) {
+        row.toggleSelected(true);
+        const actionCell = row.getVisibleCells().find(cell => cell.column.id === 'actions');
+        // This is a bit of a hack to trigger the dialog
+        // In a real app, you might use a state management library to control the dialog
+        (actionCell?.getContext()?.cell?.column?.id === 'actions') &&
+          setTimeout(() => {
+            const trigger = document.querySelector(`[data-state="selected"] [aria-haspopup="dialog"]`) as HTMLButtonElement | null;
+            trigger?.click();
+          }, 100);
+      }
     }
   }, [searchParams, table]);
 
@@ -315,14 +316,26 @@ export function ReportsTable() {
   return (
     <div className="w-full">
       <div className="flex items-center py-4 gap-4">
-        <Input
-          placeholder="Filter by title..."
-          value={(table.getColumn('title')?.getFilterValue() as string) ?? ''}
-          onChange={(event) =>
-            table.getColumn('title')?.setFilterValue(event.target.value)
-          }
-          className="max-w-sm"
-        />
+        <div className="flex w-full max-w-sm items-center space-x-2">
+          <Input
+            placeholder="Filter by title..."
+            value={filterInput}
+            onChange={(event) => setFilterInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                table.getColumn('title')?.setFilterValue(filterInput);
+              }
+            }}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => table.getColumn('title')?.setFilterValue(filterInput)}
+          >
+            <Search className="h-4 w-4" />
+            <span className="sr-only">Search</span>
+          </Button>
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="ml-auto">
@@ -352,7 +365,7 @@ export function ReportsTable() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="default" disabled={isLoading || data.length === 0}>
-              <Download className="mr-2"/>
+              <Download className="mr-2" />
               Export
             </Button>
           </DropdownMenuTrigger>
@@ -376,9 +389,9 @@ export function ReportsTable() {
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}
@@ -387,7 +400,7 @@ export function ReportsTable() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-                <TableSkeleton columns={columns} />
+              <TableSkeleton columns={columns} />
             ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow

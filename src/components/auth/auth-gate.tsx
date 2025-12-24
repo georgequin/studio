@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { useAuth, useUser } from '@/firebase/provider';
-import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
+import { useAuth, useUser } from '@/lib/firebase/provider';
+import { initiateAnonymousSignIn } from '@/lib/firebase/non-blocking-login';
 import { Skeleton } from '@/components/ui/skeleton';
 
 function AppSkeleton() {

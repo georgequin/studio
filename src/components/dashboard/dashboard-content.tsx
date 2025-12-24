@@ -11,7 +11,7 @@ import {
 import { CategoryChart } from '@/components/dashboard/category-chart';
 import { SourceChart } from '@/components/dashboard/source-chart';
 import { FrequencyChart } from '@/components/dashboard/frequency-chart';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore } from '@/lib/firebase';
 import { collection } from 'firebase/firestore';
 import type { Report } from '@/lib/types';
 import type { Source } from '@/lib/types';
@@ -39,7 +39,7 @@ export function DashboardContent() {
     ? new Set(reports.map((r) => r.category)).size
     : 0;
   const totalSources = sources?.length || 0;
-  
+
   const isLoading = reportsLoading || sourcesLoading;
 
   return (
@@ -51,7 +51,7 @@ export function DashboardContent() {
             <CardDescription>Total articles processed</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? <Skeleton className="w-20 h-10"/> : <p className="text-4xl font-bold">{totalReports}</p>}
+            {isLoading ? <Skeleton className="w-20 h-10" /> : <p className="text-4xl font-bold">{totalReports}</p>}
           </CardContent>
         </Card>
         <Card>
@@ -60,7 +60,7 @@ export function DashboardContent() {
             <CardDescription>Distinct violation categories</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? <Skeleton className="w-20 h-10"/> : <p className="text-4xl font-bold">{totalCategories}</p>}
+            {isLoading ? <Skeleton className="w-20 h-10" /> : <p className="text-4xl font-bold">{totalCategories}</p>}
           </CardContent>
         </Card>
         <Card>
@@ -69,7 +69,7 @@ export function DashboardContent() {
             <CardDescription>Unique publications tracked</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? <Skeleton className="w-20 h-10"/> : <p className="text-4xl font-bold">{totalSources}</p>}
+            {isLoading ? <Skeleton className="w-20 h-10" /> : <p className="text-4xl font-bold">{totalSources}</p>}
           </CardContent>
         </Card>
       </div>

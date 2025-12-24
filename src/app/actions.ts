@@ -6,8 +6,10 @@ import { categorizeNewsClipping } from '@/ai/flows/categorize-news-clipping';
 import { THEMATIC_AREA_MAP } from '@/lib/thematic-areas';
 import { extractTextFromImage } from '@/ai/flows/extract-text-from-image';
 import { detectDuplicateIncident } from '@/ai/flows/detect-duplicate-incident';
-import { getDocs, collection, query, orderBy, limit } from 'firebase/firestore';
-import { getSdks } from '@/firebase/server';
+// import { getDocs, collection, query, orderBy, limit } from 'firebase/firestore';
+import { getDocs, collection, query, orderBy, limit, getFirestore } from 'firebase/firestore';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { firebaseConfig } from '@/lib/firebase/config';
 import type { Report } from '@/lib/types';
 
 
@@ -29,15 +31,23 @@ export type AnalysisResult = {
 };
 
 // Helper function to fetch recent reports
+// Helper function to fetch recent reports
 async function getRecentReports() {
-  const { firestore } = await getSdks();
+  const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  const firestore = getFirestore(app);
+
   const reportsRef = collection(firestore, 'reports');
-  const q = query(reportsRef, orderBy('uploadDate', 'desc'), limit(25)); // Look at last 25 reports
+  const q = query(reportsRef, orderBy('uploadDate', 'desc'), limit(10)); // Look at last 10 reports
   const querySnapshot = await getDocs(q);
+
   const reports: Pick<Report, 'id' | 'summary' | 'title'>[] = [];
   querySnapshot.forEach((doc) => {
     const data = doc.data() as Report;
-    reports.push({ id: doc.id, summary: data.summary, title: data.title });
+    reports.push({
+      id: doc.id,
+      summary: (data.summary || 'No summary available.').slice(0, 500),
+      title: data.title || 'Untitled Report'
+    });
   });
   return reports;
 }
@@ -119,7 +129,7 @@ export async function processClippingAction(
         data: [],
       };
     }
-    
+
     // Fetch recent reports for duplicate check
     const recentReports = await getRecentReports();
 
@@ -130,19 +140,28 @@ export async function processClippingAction(
             return null;
           }
 
-          const [categoryResult, duplicateResult] = await Promise.all([
-            categorizeNewsClipping({
-              text: article.extractedArticle,
-            }),
-            detectDuplicateIncident({
+          const categoryResult = await categorizeNewsClipping({
+            text: article.extractedArticle,
+          });
+
+          let duplicateResult = {
+            isDuplicate: false,
+            duplicateReportId: undefined as string | undefined,
+            reasoning: 'Duplicate check skipped due to error.',
+          };
+
+          try {
+            duplicateResult = await detectDuplicateIncident({
               newArticleText: article.extractedArticle,
               recentReports: recentReports,
-            }),
-          ]);
+            });
+          } catch (err) {
+            console.error('Duplicate detection failed:', err);
+          }
 
           const thematicArea =
             THEMATIC_AREA_MAP[
-              categoryResult.category as keyof typeof THEMATIC_AREA_MAP
+            categoryResult.category as keyof typeof THEMATIC_AREA_MAP
             ] || 'Unassigned';
 
           return {

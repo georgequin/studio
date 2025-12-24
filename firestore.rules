@@ -99,9 +99,9 @@ service cloud.firestore {
     match /sources/{sourceId} {
       allow get: if true;
       allow list: if true;
-      allow create: if false;  // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow update: if false;  // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow delete: if false;  // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     /**

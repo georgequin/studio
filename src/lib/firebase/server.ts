@@ -3,7 +3,7 @@
 import { initializeApp, getApps, getApp, FirebaseOptions } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { credential } from 'firebase-admin';
-import { firebaseConfig as clientFirebaseConfig } from '@/firebase/config';
+import { firebaseConfig as clientFirebaseConfig } from '@/lib/firebase/config';
 
 const firebaseConfig: FirebaseOptions = {
     credential: credential.applicationDefault(),

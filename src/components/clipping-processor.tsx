@@ -44,14 +44,21 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
-import { useCollection, useFirestore, useUser } from '@/firebase';
+import { useCollection, useFirestore, useUser } from '@/lib/firebase';
 import { collection, doc, serverTimestamp } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking } from '@/lib/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { THEMATIC_AREA_MAP } from '@/lib/thematic-areas';
+import {
+  autoCropBlob,
+  buildFileMetaKey,
+  formatFileSize,
+  type FileMeta
+} from '@/lib/image-processing';
+import { AnalysisResultCard } from '@/components/dashboard/AnalysisResultCard';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
-const AUTO_CROP_THRESHOLD = 238;
-const MIN_AUTO_CROP_AREA_REDUCTION = 0.08;
+
 
 const initialState: {
   message: string | null;
@@ -75,288 +82,17 @@ function SubmitButton() {
         </>
       ) : (
         <>
-        <Sparkles className="mr-2" />
-        Extract Stories
+          <Sparkles className="mr-2" />
+          Extract Stories
         </>
       )}
     </Button>
   );
 }
 
-type FileMetaKey = string;
-type FileMeta = Record<
-  FileMetaKey,
-  {
-    wasAutoCropped: boolean;
-    originalName: string;
-  }
->;
 
-function buildFileMetaKey(file: File) {
-  return `${file.name}-${file.lastModified}-${file.size}`;
-}
 
-async function loadImageFromBlob(blob: Blob): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(blob);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      resolve(image);
-    };
-    image.onerror = (error) => {
-      URL.revokeObjectURL(objectUrl);
-      reject(error);
-    };
-    image.src = objectUrl;
-  });
-}
 
-function detectContentBounds(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number
-) {
-  const { data } = context.getImageData(0, 0, width, height);
-
-  let top = height;
-  let bottom = 0;
-  let left = width;
-  let right = 0;
-
-  const stepX = Math.max(1, Math.floor(width / 1000));
-  const stepY = Math.max(1, Math.floor(height / 1000));
-
-  for (let y = 0; y < height; y += stepY) {
-    for (let x = 0; x < width; x += stepX) {
-      const idx = (y * width + x) * 4;
-      const r = data[idx];
-      const g = data[idx + 1];
-      const b = data[idx + 2];
-      const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-
-      if (brightness < AUTO_CROP_THRESHOLD) {
-        if (x < left) left = x;
-        if (x > right) right = x;
-        if (y < top) top = y;
-        if (y > bottom) bottom = y;
-      }
-    }
-  }
-
-  if (left >= right || top >= bottom) {
-    return null;
-  }
-
-  return { top, bottom, left, right };
-}
-
-async function autoCropBlob(blob: Blob, fileName: string): Promise<{
-  file: File;
-  wasAutoCropped: boolean;
-}> {
-  try {
-    const image = await loadImageFromBlob(blob);
-    const canvas = document.createElement('canvas');
-    canvas.width = image.naturalWidth || image.width;
-    canvas.height = image.naturalHeight || image.height;
-
-    const context = canvas.getContext('2d', { willReadFrequently: true });
-    if (!context) {
-      throw new Error('Unable to access canvas context');
-    }
-
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-    const bounds = detectContentBounds(context, canvas.width, canvas.height);
-    if (!bounds) {
-      return {
-        file: new File([blob], fileName, {
-          type: blob.type,
-          lastModified: Date.now(),
-        }),
-        wasAutoCropped: false,
-      };
-    }
-
-    const cropWidth = bounds.right - bounds.left;
-    const cropHeight = bounds.bottom - bounds.top;
-    const originalArea = canvas.width * canvas.height;
-    const croppedArea = cropWidth * cropHeight;
-
-    const areaReduction = 1 - croppedArea / originalArea;
-
-    if (areaReduction < MIN_AUTO_CROP_AREA_REDUCTION) {
-      return {
-        file: new File([blob], fileName, {
-          type: blob.type,
-          lastModified: Date.now(),
-        }),
-        wasAutoCropped: false,
-      };
-    }
-
-    const croppedCanvas = document.createElement('canvas');
-    croppedCanvas.width = cropWidth;
-    croppedCanvas.height = cropHeight;
-    const croppedContext = croppedCanvas.getContext('2d');
-    if (!croppedContext) {
-      throw new Error('Unable to access cropped canvas context');
-    }
-
-    croppedContext.drawImage(
-      canvas,
-      bounds.left,
-      bounds.top,
-      cropWidth,
-      cropHeight,
-      0,
-      0,
-      cropWidth,
-      cropHeight
-    );
-
-    const outputType = blob.type || 'image/png';
-    const croppedBlob = await new Promise<Blob | null>((resolve) =>
-      croppedCanvas.toBlob((canvasBlob) => resolve(canvasBlob), outputType, 0.95)
-    );
-
-    if (!croppedBlob) {
-      throw new Error('Failed to create cropped image blob');
-    }
-
-    const normalizedName = fileName.replace(/\.(\w+)$/, '');
-    const extension = outputType.split('/')[1] || 'png';
-
-    return {
-      file: new File([croppedBlob], `${normalizedName}-cropped.${extension}`, {
-        type: outputType,
-        lastModified: Date.now(),
-      }),
-      wasAutoCropped: true,
-    };
-  } catch (error) {
-    console.warn('Auto-crop failed, using original image', error);
-    return {
-      file: new File([blob], fileName, {
-        type: blob.type,
-        lastModified: Date.now(),
-      }),
-      wasAutoCropped: false,
-    };
-  }
-}
-
-function formatFileSize(bytes: number) {
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  const power = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-    units.length - 1
-  );
-  const value = bytes / Math.pow(1024, power);
-  return `${value.toFixed(value >= 10 || power === 0 ? 0 : 1)} ${units[power]}`;
-}
-
-const AnalysisResultCard = ({
-    result,
-    onSave,
-    onUpdate,
-    index,
-    sourceId,
-}: {
-    result: AnalysisResult;
-    onSave: (result: AnalysisResult, sourceId: string) => void;
-    onUpdate: (index: number, field: keyof AnalysisResult, value: string) => void;
-    index: number;
-    sourceId: string;
-}) => {
-    const { toast } = useToast();
-    const handleSaveClick = () => {
-        if (!sourceId) {
-            toast({
-                variant: 'destructive',
-                title: 'Source Required',
-                description: 'Please select a news source before saving.',
-            });
-            return;
-        }
-        onSave(result, sourceId);
-    }
-
-    return (
-        <div className="lg:col-span-2 grid gap-8 border-t pt-8">
-            {result.isDuplicate && (
-                <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Potential Duplicate Detected</AlertTitle>
-                    <AlertDescription>
-                        {result.reasoning}
-                        <Button variant="link" asChild className="p-0 h-auto ml-2">
-                           <a href={`/reports?view=${result.duplicateReportId}`} target="_blank">View Original Report</a>
-                        </Button>
-                    </AlertDescription>
-                </Alert>
-            )}
-
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Analysis Result #{index + 1}</h2>
-             <Button onClick={handleSaveClick} disabled={result.isDuplicate}>
-              <Save className="mr-2" />
-              Save Report
-            </Button>
-          </div>
-          <div className="grid gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base font-medium flex items-center gap-4"><Newspaper className="text-accent" /> Extracted Article</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea value={result.extractedArticle} onChange={(e) => onUpdate(index, 'extractedArticle', e.target.value)} className="min-h-[150px] text-base" />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base font-medium flex items-center gap-4"><Lightbulb className="text-accent" /> AI Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Textarea value={result.summary} onChange={(e) => onUpdate(index, 'summary', e.target.value)} className="min-h-[120px] text-base" />
-              </CardContent>
-            </Card>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base font-medium flex items-center gap-4"><Tag className="text-accent" /> Category</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <Input value={result.category} onChange={(e) => onUpdate(index, 'category', e.target.value)} />
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      Confidence:
-                    </span>
-                    <Progress
-                      value={result.confidence * 100}
-                      className="w-[60%]"
-                    />
-                    <span className="text-sm font-medium">
-                      {Math.round(result.confidence * 100)}%
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base font-medium flex items-center gap-4"><FolderKanban className="text-accent" /> Assigned Thematic Area</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <Input value={result.thematicArea} onChange={(e) => onUpdate(index, 'thematicArea', e.target.value)} />
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
-    )
-}
 
 export function ClippingProcessor() {
   const [state, formAction] = useActionState(processClippingAction, initialState);
@@ -376,14 +112,16 @@ export function ClippingProcessor() {
 
   const firestore = useFirestore();
   const { user } = useUser();
-  const sourcesCollection = firestore ? collection(firestore, 'sources') : null;
+  const sourcesCollection = React.useMemo(() => {
+    return firestore ? collection(firestore, 'sources') : null;
+  }, [firestore]);
   const { data: sources, isLoading: sourcesLoading } = useCollection(sourcesCollection);
-  
+
   React.useEffect(() => {
     if (!state) {
       return;
     }
-  
+
     if (state.message) {
       if (state.errors) {
         toast({
@@ -392,7 +130,7 @@ export function ClippingProcessor() {
           description: state.message,
         });
       } else if (state.data) {
-         toast({
+        toast({
           title: 'Analysis Complete',
           description: state.message,
         });
@@ -403,7 +141,7 @@ export function ClippingProcessor() {
         });
       }
     }
-  
+
     if (state.data) {
       setEditableResults(state.data);
     }
@@ -419,21 +157,21 @@ export function ClippingProcessor() {
     updatedResult[field] = field === 'confidence' ? parseFloat(value) : value;
 
     if (field === 'category') {
-        updatedResult['thematicArea'] = THEMATIC_AREA_MAP[value as keyof typeof THEMATIC_AREA_MAP] || 'Unassigned';
+      updatedResult['thematicArea'] = THEMATIC_AREA_MAP[value as keyof typeof THEMATIC_AREA_MAP] || 'Unassigned';
     }
-    
+
     newResults[index] = updatedResult;
     setEditableResults(newResults);
   };
 
   const handleSaveReport = (resultToSave: AnalysisResult, currentSourceId: string) => {
     if (!firestore || !user) {
-        toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'Could not connect to the database. Please try again.',
-        });
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not connect to the database. Please try again.',
+      });
+      return;
     }
     if (!currentSourceId) {
       toast({
@@ -446,20 +184,20 @@ export function ClippingProcessor() {
 
     const newReportRef = doc(collection(firestore, 'reports'));
     const reportData = {
-        ...resultToSave,
-        id: newReportRef.id,
-        sourceId: currentSourceId,
-        userId: user.uid,
-        publicationDate: new Date().toISOString(),
-        uploadDate: serverTimestamp(),
-        content: resultToSave.extractedArticle,
+      ...resultToSave,
+      id: newReportRef.id,
+      sourceId: currentSourceId,
+      userId: user.uid,
+      publicationDate: new Date().toISOString(),
+      uploadDate: serverTimestamp(),
+      content: resultToSave.extractedArticle,
     };
 
     setDocumentNonBlocking(newReportRef, reportData, {});
-    
+
     toast({
-        title: 'Report Saved!',
-        description: 'The new report has been saved to the database.',
+      title: 'Report Saved!',
+      description: 'The new report has been saved to the database.',
     });
 
     setEditableResults(prev => prev ? prev.filter(r => r !== resultToSave) : null);
@@ -532,61 +270,98 @@ export function ClippingProcessor() {
       return nextFiles;
     });
   };
-  
+
   const handleOpenCamera = () => {
     setShowCamera(true);
   };
 
   const handleCloseCamera = () => {
-      setShowCamera(false);
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
-      setHasCameraPermission(null);
+    setShowCamera(false);
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+    }
+    setHasCameraPermission(null);
   };
-  
+
   const handleCapture = async () => {
     if (videoRef.current && canvasRef.current) {
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const context = canvas.getContext('2d');
-        if (context) {
-            context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-            const blob = await new Promise<Blob | null>((resolve) =>
-              canvas.toBlob((canvasBlob) => resolve(canvasBlob), 'image/jpeg', 0.92)
-            );
-            if (blob) {
-              const suggestedName = `capture-${Date.now()}.jpg`;
-              const { file: processedFile, wasAutoCropped } = await autoCropBlob(
-                blob,
-                suggestedName
-              );
-              setFiles((prevFiles) => [...prevFiles, processedFile]);
-              setFileMeta((prevMeta) => ({
-                ...prevMeta,
-                [buildFileMetaKey(processedFile)]: {
-                  wasAutoCropped,
-                  originalName: suggestedName,
-                },
-              }));
-              toast({
-                title: wasAutoCropped ? 'Capture ready' : 'Capture saved',
-                description: wasAutoCropped
-                  ? 'We trimmed the edges to keep the article in focus.'
-                  : 'Your capture is ready for analysis.',
-              });
-              handleCloseCamera();
-            } else {
-              toast({
-                variant: 'destructive',
-                title: 'Capture failed',
-                description: 'We could not read the camera frame. Please try again.',
-              });
-            }
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        const blob = await new Promise<Blob | null>((resolve) =>
+          canvas.toBlob((canvasBlob) => resolve(canvasBlob), 'image/jpeg', 0.92)
+        );
+        if (blob) {
+          const suggestedName = `capture-${Date.now()}.jpg`;
+          const { file: processedFile, wasAutoCropped } = await autoCropBlob(
+            blob,
+            suggestedName
+          );
+          setFiles((prevFiles) => [...prevFiles, processedFile]);
+          setFileMeta((prevMeta) => ({
+            ...prevMeta,
+            [buildFileMetaKey(processedFile)]: {
+              wasAutoCropped,
+              originalName: suggestedName,
+            },
+          }));
+          toast({
+            title: wasAutoCropped ? 'Capture ready' : 'Capture saved',
+            description: wasAutoCropped
+              ? 'We trimmed the edges to keep the article in focus.'
+              : 'Your capture is ready for analysis.',
+          });
+          handleCloseCamera();
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Capture failed',
+            description: 'We could not read the camera frame. Please try again.',
+          });
         }
+      }
+    }
+  };
+
+  const handleLoadExample = async () => {
+    const exampleImage = PlaceHolderImages.find(img => img.id === 'clipping-upload');
+    if (!exampleImage) return;
+
+    try {
+      const response = await fetch(exampleImage.imageUrl);
+      const blob = await response.blob();
+      const file = new File([blob], 'example-clipping.jpg', { type: 'image/jpeg' });
+
+      const { file: processedFile, wasAutoCropped } = await autoCropBlob(
+        file,
+        file.name
+      );
+
+      setFiles((prevFiles) => [...prevFiles, processedFile]);
+      setFileMeta((prevMeta) => ({
+        ...prevMeta,
+        [buildFileMetaKey(processedFile)]: {
+          wasAutoCropped,
+          originalName: 'example-clipping.jpg',
+        },
+      }));
+
+      toast({
+        title: 'Example loaded',
+        description: 'Ready for analysis.',
+      });
+    } catch (error) {
+      console.error('Failed to load example', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error loading example',
+        description: 'Could not load the example image.',
+      });
     }
   };
 
@@ -596,7 +371,7 @@ export function ClippingProcessor() {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
           setHasCameraPermission(true);
-  
+
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
           }
@@ -612,7 +387,7 @@ export function ClippingProcessor() {
       };
       getCameraPermission();
     }
-  
+
     // Cleanup function
     return () => {
       if (videoRef.current && videoRef.current.srcObject) {
@@ -766,6 +541,14 @@ export function ClippingProcessor() {
                         >
                           <Camera className="mr-2" /> Camera
                         </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleLoadExample}
+                          className="flex-1 min-w-[140px]"
+                        >
+                          <Sparkles className="mr-2" /> Try Example
+                        </Button>
                       </div>
                       <Input
                         ref={fileInputRef}
@@ -844,9 +627,12 @@ export function ClippingProcessor() {
                 <Alert>
                   <Lightbulb className="h-4 w-4" />
                   <AlertTitle>How it Works</AlertTitle>
-                  <AlertDescription>
-                    The AI extracts clean text, identifies relevant incidents, and prepares polished summaries you can edit
-                    before saving.
+                  <AlertDescription className="mt-2">
+                    <ol className="list-decimal list-inside space-y-1">
+                      <li><strong>Select Source & Input:</strong> Choose a newspaper and upload an image or paste text.</li>
+                      <li><strong>Extract:</strong> Click "Extract Stories" to let AI find incidents.</li>
+                      <li><strong>Review & Save:</strong> Check the results below, edit if needed, and click "Save Report" to store it.</li>
+                    </ol>
                   </AlertDescription>
                 </Alert>
               </div>
